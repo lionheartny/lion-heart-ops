@@ -98,15 +98,12 @@ export default function Dashboard() {
   useEffect(() => {
     const update = () => {
       if (clocksRef.current) {
-        // Use offsetTop + offsetHeight for position relative to page (not viewport), stable on scroll
-        const el = clocksRef.current
-        let top = 0; let cur: HTMLElement | null = el
-        while (cur) { top += cur.offsetTop; cur = cur.offsetParent as HTMLElement | null }
-        setOrbTop(top + el.offsetHeight + 10)
+        // getBoundingClientRect at mount time (scrollY≈0) gives correct fixed-position top
+        setOrbTop(Math.round(clocksRef.current.getBoundingClientRect().bottom) + 10)
       }
     }
-    update()
-    setTimeout(update, 100)
+    requestAnimationFrame(update)
+    setTimeout(update, 300)
     window.addEventListener('resize', update)
     return () => window.removeEventListener('resize', update)
   }, [])
@@ -648,9 +645,9 @@ export default function Dashboard() {
           style={{ position: 'absolute', top: 0, left: 0, overflow: 'visible', pointerEvents: 'none' }}>
           <defs>
             <radialGradient id="coreAura" cx="50%" cy="50%" r="50%">
-              <stop offset="0%"   stopColor="rgba(253,186,116,0.28)" />
-              <stop offset="55%"  stopColor="rgba(245,158,11,0.07)" />
-              <stop offset="100%" stopColor="rgba(180,83,9,0)" />
+              <stop offset="0%"   stopColor="rgba(147,197,253,0.25)" />
+              <stop offset="55%"  stopColor="rgba(96,165,250,0.06)" />
+              <stop offset="100%" stopColor="rgba(30,64,175,0)" />
             </radialGradient>
           </defs>
 
@@ -658,9 +655,9 @@ export default function Dashboard() {
           <ellipse cx={490} cy={205} rx={240} ry={195} fill="url(#coreAura)" />
 
           {/* Outer containing rings */}
-          <circle cx={490} cy={205} r={232} fill="none" stroke="rgba(120,53,15,0.58)" strokeWidth={1.5} strokeDasharray="18 7" style={{ animation: 'outerPulse 3.2s ease-in-out infinite' }} />
-          <circle cx={490} cy={205} r={220} fill="none" stroke="rgba(180,83,9,0.36)" strokeWidth={1}   strokeDasharray="9 12" />
-          <circle cx={490} cy={205} r={208} fill="none" stroke="rgba(245,158,11,0.2)" strokeWidth={0.7} />
+          <circle cx={490} cy={205} r={232} fill="none" stroke="rgba(30,64,175,0.55)" strokeWidth={1.5} strokeDasharray="18 7" style={{ animation: 'outerPulse 3.2s ease-in-out infinite' }} />
+          <circle cx={490} cy={205} r={220} fill="none" stroke="rgba(59,130,246,0.32)" strokeWidth={1}   strokeDasharray="9 12" />
+          <circle cx={490} cy={205} r={208} fill="none" stroke="rgba(96,165,250,0.18)" strokeWidth={0.7} />
 
           {/* Dense radial network — 64 lines */}
           {Array.from({length: 64}, (_, i) => {
@@ -684,67 +681,67 @@ export default function Dashboard() {
             return (
               <g key={i}>
                 <line x1={x1} y1={y1} x2={x2} y2={y2}
-                  stroke={`rgba(251,146,60,${op})`} strokeWidth={w} strokeLinecap="square" />
+                  stroke={`rgba(96,165,250,${op})`} strokeWidth={w} strokeLinecap="square" />
                 {hasBranch && (
                   <line x1={x2} y1={y2} x2={bx} y2={by}
-                    stroke={`rgba(245,158,11,${(op*0.6).toFixed(2)})`} strokeWidth={0.5} />
+                    stroke={`rgba(59,130,246,${(op*0.6).toFixed(2)})`} strokeWidth={0.5} />
                 )}
                 {has2nd && (
                   <line x1={(x1+x2)/2} y1={(y1+y2)/2} x2={b2x} y2={b2y}
-                    stroke="rgba(251,146,60,0.15)" strokeWidth={0.4} />
+                    stroke="rgba(96,165,250,0.15)" strokeWidth={0.4} />
                 )}
               </g>
             )
           })}
 
           {/* Mid-ring arc segments */}
-          <circle cx={490} cy={205} r={158} fill="none" stroke="rgba(245,158,11,0.28)"  strokeWidth={1}   strokeDasharray="42 16 22 16" />
-          <circle cx={490} cy={205} r={132} fill="none" stroke="rgba(251,146,60,0.22)"  strokeWidth={0.8} strokeDasharray="26 20" />
-          <circle cx={490} cy={205} r={110} fill="none" stroke="rgba(253,186,116,0.3)"  strokeWidth={1}   strokeDasharray="32 11 12 11" />
+          <circle cx={490} cy={205} r={158} fill="none" stroke="rgba(96,165,250,0.25)"  strokeWidth={1}   strokeDasharray="42 16 22 16" />
+          <circle cx={490} cy={205} r={132} fill="none" stroke="rgba(59,130,246,0.2)"  strokeWidth={0.8} strokeDasharray="26 20" />
+          <circle cx={490} cy={205} r={110} fill="none" stroke="rgba(147,197,253,0.28)"  strokeWidth={1}   strokeDasharray="32 11 12 11" />
 
           {/* Rotating sweep arm */}
           <g style={{ transformOrigin: '490px 205px', animation: 'sweepRotate 7s linear infinite' }}>
-            <line x1={490} y1={205} x2={706} y2={205} stroke="rgba(251,146,60,0.55)" strokeWidth={1.5} />
-            <circle cx={706} cy={205} r={4.5} fill="rgba(253,186,116,0.85)" />
-            <circle cx={706} cy={205} r={8}   fill="none" stroke="rgba(251,146,60,0.35)" strokeWidth={1} />
+            <line x1={490} y1={205} x2={706} y2={205} stroke="rgba(96,165,250,0.55)" strokeWidth={1.5} />
+            <circle cx={706} cy={205} r={4.5} fill="rgba(147,197,253,0.85)" />
+            <circle cx={706} cy={205} r={8}   fill="none" stroke="rgba(59,130,246,0.35)" strokeWidth={1} />
           </g>
 
           {/* Inner fast-spinning orbital rings */}
-          <circle cx={490} cy={205} r={86} fill="none" stroke="rgba(253,186,116,0.88)" strokeWidth={2} strokeDasharray="24 9 8 9">
+          <circle cx={490} cy={205} r={86} fill="none" stroke="rgba(147,197,253,0.88)" strokeWidth={2} strokeDasharray="24 9 8 9">
             <animateTransform attributeName="transform" type="rotate" from="0 490 205" to="-360 490 205" dur="3.5s" repeatCount="indefinite" />
           </circle>
-          <circle cx={490} cy={205} r={93} fill="none" stroke="rgba(245,158,11,0.4)" strokeWidth={1} strokeDasharray="12 15">
+          <circle cx={490} cy={205} r={93} fill="none" stroke="rgba(96,165,250,0.38)" strokeWidth={1} strokeDasharray="12 15">
             <animateTransform attributeName="transform" type="rotate" from="0 490 205" to="360 490 205" dur="9s" repeatCount="indefinite" />
           </circle>
 
           {/* HUD frame — top-left */}
-          <line x1={44} y1={16} x2={290} y2={16} stroke="rgba(180,83,9,0.68)" strokeWidth={1.5} />
-          <line x1={44} y1={16} x2={44}  y2={42} stroke="rgba(180,83,9,0.68)" strokeWidth={1.5} />
-          <line x1={66} y1={26} x2={255} y2={26} stroke="rgba(120,53,15,0.45)" strokeWidth={1} />
-          <rect x={47} y={30} width={32} height={5} rx={1} fill="rgba(245,158,11,0.38)" />
-          <rect x={87} y={30} width={20} height={5} rx={1} fill="rgba(180,83,9,0.3)" />
-          <rect x={115} y={30} width={12} height={5} rx={1} fill="rgba(120,53,15,0.25)" />
+          <line x1={44} y1={16} x2={290} y2={16} stroke="rgba(59,130,246,0.6)" strokeWidth={1.5} />
+          <line x1={44} y1={16} x2={44}  y2={42} stroke="rgba(59,130,246,0.6)" strokeWidth={1.5} />
+          <line x1={66} y1={26} x2={255} y2={26} stroke="rgba(30,64,175,0.4)" strokeWidth={1} />
+          <rect x={47} y={30} width={32} height={5} rx={1} fill="rgba(96,165,250,0.35)" />
+          <rect x={87} y={30} width={20} height={5} rx={1} fill="rgba(59,130,246,0.28)" />
+          <rect x={115} y={30} width={12} height={5} rx={1} fill="rgba(30,64,175,0.22)" />
 
           {/* HUD frame — top-right */}
-          <line x1={690} y1={16} x2={936} y2={16} stroke="rgba(180,83,9,0.68)" strokeWidth={1.5} />
-          <line x1={936} y1={16} x2={936} y2={42} stroke="rgba(180,83,9,0.68)" strokeWidth={1.5} />
-          <line x1={725} y1={26} x2={914} y2={26} stroke="rgba(120,53,15,0.45)" strokeWidth={1} />
-          <rect x={861} y={30} width={32} height={5} rx={1} fill="rgba(245,158,11,0.38)" />
-          <rect x={843} y={30} width={14} height={5} rx={1} fill="rgba(180,83,9,0.3)" />
+          <line x1={690} y1={16} x2={936} y2={16} stroke="rgba(59,130,246,0.6)" strokeWidth={1.5} />
+          <line x1={936} y1={16} x2={936} y2={42} stroke="rgba(59,130,246,0.6)" strokeWidth={1.5} />
+          <line x1={725} y1={26} x2={914} y2={26} stroke="rgba(30,64,175,0.4)" strokeWidth={1} />
+          <rect x={861} y={30} width={32} height={5} rx={1} fill="rgba(96,165,250,0.35)" />
+          <rect x={843} y={30} width={14} height={5} rx={1} fill="rgba(59,130,246,0.28)" />
 
           {/* Side tick marks */}
           {[48,66,84,102,120,138,156].map((y, i) => (
             <g key={i}>
-              <line x1={936} y1={y} x2={936+(i%3===0?16:10)} y2={y} stroke="rgba(180,83,9,0.5)" strokeWidth={1} />
-              <line x1={44}  y1={y} x2={44 -(i%3===0?16:10)} y2={y} stroke="rgba(180,83,9,0.5)" strokeWidth={1} />
+              <line x1={936} y1={y} x2={936+(i%3===0?16:10)} y2={y} stroke="rgba(59,130,246,0.45)" strokeWidth={1} />
+              <line x1={44}  y1={y} x2={44 -(i%3===0?16:10)} y2={y} stroke="rgba(59,130,246,0.45)" strokeWidth={1} />
             </g>
           ))}
 
           {/* Corner node indicators */}
-          <circle cx={924} cy={275} r={11} fill="none" stroke="rgba(180,83,9,0.62)" strokeWidth={1.5} strokeDasharray="5 3" />
-          <circle cx={924} cy={275} r={4.5} fill="rgba(245,158,11,0.55)" />
-          <circle cx={56}  cy={275} r={11} fill="none" stroke="rgba(180,83,9,0.62)" strokeWidth={1.5} strokeDasharray="5 3" />
-          <circle cx={56}  cy={275} r={4.5} fill="rgba(245,158,11,0.55)" />
+          <circle cx={924} cy={275} r={11} fill="none" stroke="rgba(59,130,246,0.55)" strokeWidth={1.5} strokeDasharray="5 3" />
+          <circle cx={924} cy={275} r={4.5} fill="rgba(96,165,250,0.55)" />
+          <circle cx={56}  cy={275} r={11} fill="none" stroke="rgba(59,130,246,0.55)" strokeWidth={1.5} strokeDasharray="5 3" />
+          <circle cx={56}  cy={275} r={4.5} fill="rgba(96,165,250,0.55)" />
         </svg>
 
         {/* ORB + PANEL — pointer-events re-enabled */}
@@ -755,18 +752,18 @@ export default function Dashboard() {
             <div style={{
               position: 'absolute', top: 150, left: '50%', transform: 'translateX(-50%)',
               width: 430, background: 'rgba(5,2,0,0.98)',
-              border: '1px solid rgba(245,158,11,0.45)', borderRadius: 18, overflow: 'hidden',
-              boxShadow: '0 32px 80px rgba(0,0,0,0.95), 0 0 0 1px rgba(245,158,11,0.08), 0 0 80px rgba(180,83,9,0.18)',
+              border: '1px solid rgba(96,165,250,0.35)', borderRadius: 18, overflow: 'hidden',
+              boxShadow: '0 32px 80px rgba(0,0,0,0.95), 0 0 0 1px rgba(96,165,250,0.06), 0 0 80px rgba(59,130,246,0.12)',
               animation: 'cmdSlideUp 0.22s ease',
             }}>
-              <div style={{ padding: '14px 18px 13px', borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'linear-gradient(135deg,rgba(180,83,9,0.22),rgba(120,53,15,0.08))', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ padding: '14px 18px 13px', borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'linear-gradient(135deg,rgba(30,64,175,0.18),rgba(15,32,87,0.08))', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-                  <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(120,53,15,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', border: '1px solid rgba(245,158,11,0.4)' }}>
+                  <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(30,64,175,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', border: '1px solid rgba(96,165,250,0.4)' }}>
                     <img src="/lh-logo.svg" style={{ width: 20, height: 20, objectFit: 'contain', filter: 'brightness(0) sepia(1) saturate(8) hue-rotate(5deg)' }} />
                   </div>
                   <div>
-                    <div style={{ fontWeight: 800, fontSize: 13, color: '#fde68a' }}>Lion-Heart Command</div>
-                    <div style={{ fontSize: 10, color: '#d97706', letterSpacing: '0.08em', textTransform: 'uppercase', marginTop: 1 }}>9 agents · always on</div>
+                    <div style={{ fontWeight: 800, fontSize: 13, color: '#dbeafe' }}>Lion-Heart Command</div>
+                    <div style={{ fontSize: 10, color: '#93c5fd', letterSpacing: '0.08em', textTransform: 'uppercase', marginTop: 1 }}>9 agents · always on</div>
                   </div>
                 </div>
                 <button onClick={() => setOrbOpen(false)} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: '#64748b', cursor: 'pointer', fontSize: 16, lineHeight: 1, padding: '4px 8px', borderRadius: 6 }}>×</button>
@@ -778,7 +775,7 @@ export default function Dashboard() {
                     Ask anything — the right agent picks up.
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, justifyContent: 'center', marginTop: 10 }}>
                       {['Donny','Mark','Boris','Svetlana','Morgan','Tara','Owen','Priya','Nina'].map(n => {
-                        const ac = AGENT_COLORS[n.toLowerCase()] ?? '#f59e0b'
+                        const ac = AGENT_COLORS[n.toLowerCase()] ?? '#60a5fa'
                         return <span key={n} style={{ background: ac+'18', color: ac, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10 }}>{n}</span>
                       })}
                     </div>
@@ -786,10 +783,10 @@ export default function Dashboard() {
                 )}
                 {orbMessages.map((m, i) => {
                   if (m.role === 'user') return (
-                    <div key={i} style={{ alignSelf: 'flex-end', background: 'linear-gradient(135deg,#b45309,#92400e)', color: '#fde68a', padding: '10px 14px', borderRadius: '14px 14px 3px 14px', maxWidth: '80%', fontSize: 13, lineHeight: 1.55 }}>{m.content}</div>
+                    <div key={i} style={{ alignSelf: 'flex-end', background: 'linear-gradient(135deg,#1e40af,#1e3a8a)', color: '#dbeafe', padding: '10px 14px', borderRadius: '14px 14px 3px 14px', maxWidth: '80%', fontSize: 13, lineHeight: 1.55 }}>{m.content}</div>
                   )
                   const agentId = m.agent ?? 'donny'
-                  const ac = AGENT_COLORS[agentId] ?? '#f59e0b'
+                  const ac = AGENT_COLORS[agentId] ?? '#60a5fa'
                   const agentName = agentId.charAt(0).toUpperCase() + agentId.slice(1)
                   return (
                     <div key={i} style={{ alignSelf: 'flex-start', maxWidth: '88%' }}>
@@ -802,17 +799,17 @@ export default function Dashboard() {
                   )
                 })}
                 {orbSending && (
-                  <div style={{ alignSelf: 'flex-start', display: 'flex', gap: 5, padding: '11px 16px', background: 'rgba(245,158,11,0.06)', borderRadius: '3px 14px 14px 14px', border: '1px solid rgba(245,158,11,0.2)' }}>
-                    {[0,160,320].map(d => <span key={d} style={{ width: 7, height: 7, borderRadius: '50%', background: '#f59e0b', display: 'inline-block', animation: `orbDot 1.3s ${d}ms infinite` }} />)}
+                  <div style={{ alignSelf: 'flex-start', display: 'flex', gap: 5, padding: '11px 16px', background: 'rgba(96,165,250,0.06)', borderRadius: '3px 14px 14px 14px', border: '1px solid rgba(96,165,250,0.2)' }}>
+                    {[0,160,320].map(d => <span key={d} style={{ width: 7, height: 7, borderRadius: '50%', background: '#60a5fa', display: 'inline-block', animation: `orbDot 1.3s ${d}ms infinite` }} />)}
                   </div>
                 )}
               </div>
               <div style={{ padding: '11px 14px', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', gap: 8 }}>
                 <input autoFocus value={orbInput} onChange={e => setOrbInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && sendOrbMessage()}
                   placeholder="Ask the team anything…"
-                  style={{ flex: 1, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(245,158,11,0.3)', color: '#f1f5f9', padding: '10px 14px', borderRadius: 10, fontSize: 13, outline: 'none' }} />
+                  style={{ flex: 1, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(96,165,250,0.3)', color: '#f1f5f9', padding: '10px 14px', borderRadius: 10, fontSize: 13, outline: 'none' }} />
                 <button onClick={sendOrbMessage} disabled={orbSending}
-                  style={{ background: 'linear-gradient(135deg,#d97706,#92400e)', border: 'none', color: '#fde68a', padding: '10px 16px', borderRadius: 10, cursor: 'pointer', fontSize: 15, fontWeight: 800, boxShadow: '0 4px 14px rgba(180,83,9,0.5)', opacity: orbSending ? 0.6 : 1 }}>↑</button>
+                  style={{ background: 'linear-gradient(135deg,#3b82f6,#1e40af)', border: 'none', color: '#dbeafe', padding: '10px 16px', borderRadius: 10, cursor: 'pointer', fontSize: 15, fontWeight: 800, boxShadow: '0 4px 14px rgba(59,130,246,0.5)', opacity: orbSending ? 0.6 : 1 }}>↑</button>
               </div>
             </div>
           )}
