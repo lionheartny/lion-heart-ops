@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
 const SC: Record<string, string> = { active: '#10b981', needs_you: '#f59e0b', idle: '#475569' }
@@ -87,10 +87,24 @@ export default function Dashboard() {
   const [orbSending, setOrbSending] = useState(false)
   const [orbMessages, setOrbMessages] = useState<Array<{role:'user'|'agent'; agent?: string; content: string}>>([])
   const [orbState, setOrbState] = useState<'idle'|'thinking'|'responding'>('idle')
+  const clocksRef = useRef<HTMLDivElement>(null)
+  const [orbTop, setOrbTop] = useState(200)
 
   useEffect(() => {
     const t = setInterval(() => setTime(new Date()), 1000)
     return () => clearInterval(t)
+  }, [])
+
+  useEffect(() => {
+    const update = () => {
+      if (clocksRef.current) {
+        setOrbTop(clocksRef.current.getBoundingClientRect().bottom + 10)
+      }
+    }
+    update()
+    window.addEventListener('resize', update)
+    window.addEventListener('scroll', update)
+    return () => { window.removeEventListener('resize', update); window.removeEventListener('scroll', update) }
   }, [])
 
   // Auto-refresh metrics every 5 min
@@ -248,7 +262,7 @@ export default function Dashboard() {
         </header>
 
         {/* ── WORLD CLOCKS ── */}
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 32, marginBottom: 16 }}>
+        <div ref={clocksRef} style={{ display: 'flex', justifyContent: 'center', gap: 32, marginBottom: 16 }}>
           {CLOCKS.map(({ label, tz, flag }) => {
             const t = time.toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })
             const d = time.toLocaleDateString('en-US', { timeZone: tz, weekday: 'short', month: 'short', day: 'numeric' })
@@ -591,22 +605,22 @@ export default function Dashboard() {
       {/* ── COMMAND ORB HUD ── */}
       <style>{`
         @keyframes orbCore {
-          0%   { box-shadow: 0 0 50px rgba(251,146,60,1), 0 0 110px rgba(245,158,11,0.7), 0 0 220px rgba(180,83,9,0.4), 0 0 360px rgba(120,53,15,0.18); }
-          38%  { box-shadow: 0 0 28px rgba(251,146,60,0.55), 0 0 65px rgba(245,158,11,0.38), 0 0 140px rgba(180,83,9,0.2), 0 0 240px rgba(120,53,15,0.08); }
-          70%  { box-shadow: 0 0 80px rgba(253,186,116,1), 0 0 170px rgba(251,146,60,0.8), 0 0 300px rgba(245,158,11,0.5), 0 0 480px rgba(180,83,9,0.22); }
-          100% { box-shadow: 0 0 50px rgba(251,146,60,1), 0 0 110px rgba(245,158,11,0.7), 0 0 220px rgba(180,83,9,0.4), 0 0 360px rgba(120,53,15,0.18); }
+          0%   { box-shadow: 0 0 50px rgba(147,197,253,1), 0 0 110px rgba(96,165,250,0.7), 0 0 220px rgba(59,130,246,0.4), 0 0 360px rgba(30,64,175,0.18); }
+          38%  { box-shadow: 0 0 28px rgba(255,255,255,0.9), 0 0 65px rgba(147,197,253,0.7), 0 0 140px rgba(96,165,250,0.3), 0 0 240px rgba(59,130,246,0.12); }
+          70%  { box-shadow: 0 0 80px rgba(255,255,255,1), 0 0 170px rgba(147,197,253,0.9), 0 0 300px rgba(96,165,250,0.6), 0 0 480px rgba(59,130,246,0.25); }
+          100% { box-shadow: 0 0 50px rgba(147,197,253,1), 0 0 110px rgba(96,165,250,0.7), 0 0 220px rgba(59,130,246,0.4), 0 0 360px rgba(30,64,175,0.18); }
         }
         @keyframes orbThink {
-          0%, 100% { box-shadow: 0 0 0 0 rgba(251,146,60,0.9), 0 0 40px rgba(251,146,60,0.7); }
-          50%       { box-shadow: 0 0 0 28px rgba(251,146,60,0), 0 0 80px rgba(251,146,60,0.3); }
+          0%, 100% { box-shadow: 0 0 0 0 rgba(96,165,250,0.9), 0 0 40px rgba(96,165,250,0.7); }
+          50%       { box-shadow: 0 0 0 28px rgba(96,165,250,0), 0 0 80px rgba(96,165,250,0.3); }
         }
         @keyframes orbRespond {
           0%, 100% { box-shadow: 0 0 0 0 rgba(16,185,129,0.9), 0 0 30px rgba(16,185,129,0.6); }
           50%       { box-shadow: 0 0 0 22px rgba(16,185,129,0), 0 0 50px rgba(16,185,129,0.3); }
         }
         @keyframes ringGlow {
-          0%, 100% { opacity: 0.75; box-shadow: 0 0 20px rgba(251,146,60,0.75), 0 0 55px rgba(245,158,11,0.4); }
-          50%       { opacity: 1;    box-shadow: 0 0 38px rgba(253,186,116,1),   0 0 95px rgba(251,146,60,0.6); }
+          0%, 100% { opacity: 0.75; box-shadow: 0 0 20px rgba(96,165,250,0.75), 0 0 55px rgba(59,130,246,0.4); }
+          50%       { opacity: 1;    box-shadow: 0 0 38px rgba(147,197,253,1),   0 0 95px rgba(96,165,250,0.6); }
         }
         @keyframes orbRingSpin  { from { transform: rotate(0deg);    } to { transform: rotate(360deg);  } }
         @keyframes orbRingSpinR { from { transform: rotate(0deg);    } to { transform: rotate(-360deg); } }
@@ -623,7 +637,7 @@ export default function Dashboard() {
       `}</style>
 
       {/* Full-width HUD fixed at bottom */}
-      <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, width: 980, height: 300, pointerEvents: 'none' }}>
+      <div style={{ position: 'fixed', top: orbTop, left: '50%', transform: 'translateX(-50%)', zIndex: 50, width: 980, height: 300, pointerEvents: 'none' }}>
 
         {/* SVG HUD LAYER */}
         <svg width={980} height={300} viewBox="0 0 980 300"
@@ -730,12 +744,12 @@ export default function Dashboard() {
         </svg>
 
         {/* ORB + PANEL — pointer-events re-enabled */}
-        <div style={{ position: 'absolute', bottom: 20, left: '50%', transform: 'translateX(-50%)', pointerEvents: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        <div style={{ position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)', pointerEvents: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
 
           {/* Command Panel */}
           {orbOpen && (
             <div style={{
-              position: 'absolute', bottom: 168, left: '50%', transform: 'translateX(-50%)',
+              position: 'absolute', top: 150, left: '50%', transform: 'translateX(-50%)',
               width: 430, background: 'rgba(5,2,0,0.98)',
               border: '1px solid rgba(245,158,11,0.45)', borderRadius: 18, overflow: 'hidden',
               boxShadow: '0 32px 80px rgba(0,0,0,0.95), 0 0 0 1px rgba(245,158,11,0.08), 0 0 80px rgba(180,83,9,0.18)',
@@ -800,11 +814,11 @@ export default function Dashboard() {
           )}
 
           {/* Spinning dashed rings */}
-          <div style={{ position: 'absolute', top: -25, left: -25, right: -25, bottom: -25, borderRadius: '50%', border: '1.5px dashed rgba(245,158,11,0.5)', animation: 'orbRingSpin 10s linear infinite', pointerEvents: 'none' }} />
-          <div style={{ position: 'absolute', top: -36, left: -36, right: -36, bottom: -36, borderRadius: '50%', border: '1px dashed rgba(180,83,9,0.3)', animation: 'orbRingSpinR 17s linear infinite', pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', top: -25, left: -25, right: -25, bottom: -25, borderRadius: '50%', border: '1.5px dashed rgba(96,165,250,0.5)', animation: 'orbRingSpin 10s linear infinite', pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', top: -36, left: -36, right: -36, bottom: -36, borderRadius: '50%', border: '1px dashed rgba(59,130,246,0.3)', animation: 'orbRingSpinR 17s linear infinite', pointerEvents: 'none' }} />
 
           {/* Outer glow ring */}
-          <div style={{ position: 'absolute', top: -14, left: -14, right: -14, bottom: -14, borderRadius: '50%', border: '2px solid rgba(253,186,116,0.78)', boxShadow: '0 0 26px rgba(251,146,60,0.85), 0 0 65px rgba(245,158,11,0.48), inset 0 0 22px rgba(245,158,11,0.18)', animation: 'ringGlow 2.4s ease-in-out infinite', pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', top: -14, left: -14, right: -14, bottom: -14, borderRadius: '50%', border: '2px solid rgba(147,197,253,0.78)', boxShadow: '0 0 26px rgba(96,165,250,0.85), 0 0 65px rgba(59,130,246,0.48), inset 0 0 22px rgba(96,165,250,0.18)', animation: 'ringGlow 2.4s ease-in-out infinite', pointerEvents: 'none' }} />
 
           {/* Amber plasma ball */}
           <button onClick={() => setOrbOpen(o => !o)} title="Lion-Heart Command"
@@ -812,7 +826,7 @@ export default function Dashboard() {
               width: 136, height: 136, borderRadius: '50%', border: 'none', cursor: 'pointer',
               background: orbState === 'responding'
                 ? 'radial-gradient(circle at 38% 33%, #ecfdf5 0%, #6ee7b7 10%, #10b981 30%, #065f46 58%, #022c22 84%)'
-                : 'radial-gradient(circle at 40% 35%, #ffffff 0%, #fffde7 7%, #fde68a 18%, #fbbf24 32%, #f59e0b 46%, #d97706 60%, #92400e 76%, #1c0a00 90%)',
+                : 'radial-gradient(circle at 38% 33%, #ffffff 0%, #dbeafe 10%, #93c5fd 22%, #3b82f6 42%, #1e40af 65%, #0f2057 85%)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               animation: orbState === 'thinking'   ? 'orbThink 0.9s ease-in-out infinite'
                        : orbState === 'responding' ? 'orbRespond 1.1s ease-in-out infinite'
