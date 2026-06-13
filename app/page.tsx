@@ -759,7 +759,7 @@ export default function Dashboard() {
               <div style={{ padding: '14px 18px 13px', borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'linear-gradient(135deg,rgba(30,64,175,0.18),rgba(15,32,87,0.08))', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
                   <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(30,64,175,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', border: '1px solid rgba(96,165,250,0.4)' }}>
-                    <img src="/lh-logo.svg" style={{ width: 20, height: 20, objectFit: 'contain', filter: 'brightness(0) sepia(1) saturate(8) hue-rotate(5deg)' }} />
+                    <img src="/lh-logo.png" style={{ width: 20, height: 20, objectFit: 'contain', filter: 'brightness(0) invert(1)' }} />
                   </div>
                   <div>
                     <div style={{ fontWeight: 800, fontSize: 13, color: '#dbeafe' }}>Lion-Heart Command</div>
@@ -837,7 +837,7 @@ export default function Dashboard() {
             }}>
             <div style={{ position: 'absolute', top: 12, left: 20, width: 44, height: 44, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,255,255,0.95) 0%, transparent 72%)', pointerEvents: 'none' }} />
             <div style={{ position: 'absolute', top: 38, left: 10, width: 20, height: 20, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,255,255,0.38) 0%, transparent 70%)', pointerEvents: 'none' }} />
-            <img src="/lh-logo.svg" style={{ width: 64, height: 64, objectFit: 'contain', filter: 'brightness(0) invert(1) drop-shadow(0 2px 16px rgba(0,0,0,0.98))', position: 'relative', flexShrink: 0 }} />
+            <img src="/lh-logo.png" style={{ width: 64, height: 64, objectFit: 'contain', filter: 'brightness(0) invert(1) drop-shadow(0 2px 20px rgba(0,0,0,0.95))', position: 'relative', flexShrink: 0 }} />
           </button>
         </div>
       </div>
