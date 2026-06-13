@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
 const SC: Record<string, string> = { active: '#10b981', needs_you: '#f59e0b', idle: '#475569' }
@@ -87,25 +87,10 @@ export default function Dashboard() {
   const [orbSending, setOrbSending] = useState(false)
   const [orbMessages, setOrbMessages] = useState<Array<{role:'user'|'agent'; agent?: string; content: string}>>([])
   const [orbState, setOrbState] = useState<'idle'|'thinking'|'responding'>('idle')
-  const clocksRef = useRef<HTMLDivElement>(null)
-  const [orbTop, setOrbTop] = useState(200)
 
   useEffect(() => {
     const t = setInterval(() => setTime(new Date()), 1000)
     return () => clearInterval(t)
-  }, [])
-
-  useEffect(() => {
-    const update = () => {
-      if (clocksRef.current) {
-        // getBoundingClientRect at mount time (scrollY≈0) gives correct fixed-position top
-        setOrbTop(Math.round(clocksRef.current.getBoundingClientRect().bottom) + 10)
-      }
-    }
-    requestAnimationFrame(update)
-    setTimeout(update, 300)
-    window.addEventListener('resize', update)
-    return () => window.removeEventListener('resize', update)
   }, [])
 
   // Auto-refresh metrics every 5 min
@@ -263,7 +248,7 @@ export default function Dashboard() {
         </header>
 
         {/* ── WORLD CLOCKS ── */}
-        <div ref={clocksRef} style={{ display: 'flex', justifyContent: 'center', gap: 32, marginBottom: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 32, marginBottom: 0 }}>
           {CLOCKS.map(({ label, tz, flag }) => {
             const t = time.toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })
             const d = time.toLocaleDateString('en-US', { timeZone: tz, weekday: 'short', month: 'short', day: 'numeric' })
@@ -281,95 +266,246 @@ export default function Dashboard() {
           })}
         </div>
 
-        {/* ── CENTERED SEARCH ── */}
-        <div style={{ maxWidth: 640, margin: '0 auto 32px' }}>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <input
-              value={searchQ}
-              onChange={e => setSearchQ(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && searchOrders(searchQ)}
-              placeholder="Search by order # or customer name / email…"
-              style={{
-                flex: 1, background: 'rgba(255,255,255,0.05)',
-                border: '1px solid rgba(255,255,255,0.12)', color: '#f1f5f9',
-                padding: '12px 18px', borderRadius: 10, fontSize: 14, outline: 'none',
-                boxShadow: '0 2px 20px rgba(0,0,0,0.3)',
-              }}
-            />
-            <button onClick={() => searchOrders(searchQ)} disabled={searching}
-              style={{
-                background: 'linear-gradient(135deg, #8b5cf6, #3b82f6)',
-                border: 'none', color: '#fff', padding: '12px 22px',
-                borderRadius: 10, cursor: 'pointer', fontSize: 14, fontWeight: 600,
-                boxShadow: '0 4px 14px rgba(139,92,246,0.4)', whiteSpace: 'nowrap',
-              }}>
-              {searching ? '…' : '🔍 Search'}
-            </button>
-            <button onClick={() => searchOrders('')} disabled={searching}
-              style={{
-                background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)',
-                color: '#94a3b8', padding: '12px 16px', borderRadius: 10, cursor: 'pointer', fontSize: 13,
-              }}>
-              Open
-            </button>
-          </div>
+        {/* ── COMMAND ORB HUD ── */}
+        <style>{`
+          @keyframes orbCore {
+            0%   { box-shadow: 0 0 50px rgba(147,197,253,1), 0 0 110px rgba(96,165,250,0.7), 0 0 220px rgba(59,130,246,0.4), 0 0 360px rgba(30,64,175,0.18); }
+            38%  { box-shadow: 0 0 28px rgba(255,255,255,0.9), 0 0 65px rgba(147,197,253,0.7), 0 0 140px rgba(96,165,250,0.3), 0 0 240px rgba(59,130,246,0.12); }
+            70%  { box-shadow: 0 0 80px rgba(255,255,255,1), 0 0 170px rgba(147,197,253,0.9), 0 0 300px rgba(96,165,250,0.6), 0 0 480px rgba(59,130,246,0.25); }
+            100% { box-shadow: 0 0 50px rgba(147,197,253,1), 0 0 110px rgba(96,165,250,0.7), 0 0 220px rgba(59,130,246,0.4), 0 0 360px rgba(30,64,175,0.18); }
+          }
+          @keyframes orbThink {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(96,165,250,0.9), 0 0 40px rgba(96,165,250,0.7); }
+            50%       { box-shadow: 0 0 0 28px rgba(96,165,250,0), 0 0 80px rgba(96,165,250,0.3); }
+          }
+          @keyframes orbRespond {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(16,185,129,0.9), 0 0 30px rgba(16,185,129,0.6); }
+            50%       { box-shadow: 0 0 0 22px rgba(16,185,129,0), 0 0 50px rgba(16,185,129,0.3); }
+          }
+          @keyframes ringGlow {
+            0%, 100% { opacity: 0.75; box-shadow: 0 0 20px rgba(96,165,250,0.75), 0 0 55px rgba(59,130,246,0.4); }
+            50%       { opacity: 1;    box-shadow: 0 0 38px rgba(147,197,253,1),   0 0 95px rgba(96,165,250,0.6); }
+          }
+          @keyframes orbRingSpin  { from { transform: rotate(0deg);    } to { transform: rotate(360deg);  } }
+          @keyframes orbRingSpinR { from { transform: rotate(0deg);    } to { transform: rotate(-360deg); } }
+          @keyframes sweepRotate  { from { transform: rotate(0deg);    } to { transform: rotate(360deg);  } }
+          @keyframes outerPulse   { 0%,100% { opacity: 0.45; } 50% { opacity: 0.78; } }
+          @keyframes cmdSlideUp {
+            from { opacity: 0; transform: translateY(20px) translateX(-50%) scale(0.96); }
+            to   { opacity: 1; transform: translateY(0)    translateX(-50%) scale(1); }
+          }
+          @keyframes orbDot {
+            0%, 80%, 100% { opacity: 0.2; transform: scale(0.7); }
+            40%            { opacity: 1;   transform: scale(1); }
+          }
+        `}</style>
 
-          {/* Search Results */}
-          {(searchResults.length > 0 || (hasSearched && !searching)) && (
-            <div style={{ marginTop: 10 }}>
-              {searching ? null : searchResults.length === 0 ? (
-                <div style={{ color: '#475569', fontSize: 13, textAlign: 'center', padding: '16px 0' }}>No orders found for "{searchQ}"</div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 400, overflowY: 'auto' }}>
-                  <div style={{ color: '#475569', fontSize: 12, marginBottom: 2 }}>{searchResults.length} result{searchResults.length !== 1 ? 's' : ''}</div>
-                  {searchResults.map((o: any) => {
-                    const exp = expandedOrder === o.orderNumber
-                    const sc = o.status === 'completed' ? '#10b981' : o.status === 'cancelled' ? '#ef4444' : o.status === 'on hold' ? '#f59e0b' : '#3b82f6'
+        {/* Full-width HUD fixed at bottom */}
+        <div style={{ position: 'relative', margin: '0 auto -80px', zIndex: 2, width: 980, height: 300, pointerEvents: 'none' }}>
+
+          {/* SVG HUD LAYER */}
+          <svg width={980} height={300} viewBox="0 0 980 300"
+            style={{ position: 'absolute', top: 0, left: 0, overflow: 'visible', pointerEvents: 'none' }}>
+            <defs>
+              <radialGradient id="coreAura" cx="50%" cy="50%" r="50%">
+                <stop offset="0%"   stopColor="rgba(147,197,253,0.25)" />
+                <stop offset="55%"  stopColor="rgba(96,165,250,0.06)" />
+                <stop offset="100%" stopColor="rgba(30,64,175,0)" />
+              </radialGradient>
+            </defs>
+
+            {/* Ambient core glow */}
+            <ellipse cx={490} cy={205} rx={240} ry={195} fill="url(#coreAura)" />
+
+            {/* Outer containing rings */}
+            <circle cx={490} cy={205} r={232} fill="none" stroke="rgba(30,64,175,0.55)" strokeWidth={1.5} strokeDasharray="18 7" style={{ animation: 'outerPulse 3.2s ease-in-out infinite' }} />
+            <circle cx={490} cy={205} r={220} fill="none" stroke="rgba(59,130,246,0.32)" strokeWidth={1}   strokeDasharray="9 12" />
+            <circle cx={490} cy={205} r={208} fill="none" stroke="rgba(96,165,250,0.18)" strokeWidth={0.7} />
+
+            {/* Dense radial network — 64 lines */}
+            {Array.from({length: 64}, (_, i) => {
+              const angleRad = i * 5.625 * Math.PI / 180
+              const len = 85 + (i * 11 % 45) + (i * 7 % 35)
+              const startR = 78, cx = 490, cy = 205
+              const x1 = cx + startR * Math.cos(angleRad)
+              const y1 = cy + startR * Math.sin(angleRad)
+              const x2 = cx + (startR + len) * Math.cos(angleRad)
+              const y2 = cy + (startR + len) * Math.sin(angleRad)
+              const op = parseFloat((0.2 + (i * 3 % 5) * 0.1).toFixed(2))
+              const w  = i % 4 === 0 ? 1.2 : i % 2 === 0 ? 0.75 : 0.45
+              const hasBranch = i % 5 === 0
+              const bAngle = angleRad + (i % 2 === 0 ? Math.PI / 2 : -Math.PI / 2)
+              const bLen = 16 + (i * 4 % 24)
+              const bx = x2 + bLen * Math.cos(bAngle)
+              const by = y2 + bLen * Math.sin(bAngle)
+              const has2nd = i % 16 === 0
+              const b2x = (x1 + x2) / 2 + 12 * Math.cos(bAngle)
+              const b2y = (y1 + y2) / 2 + 12 * Math.sin(bAngle)
+              return (
+                <g key={i}>
+                  <line x1={x1} y1={y1} x2={x2} y2={y2}
+                    stroke={`rgba(96,165,250,${op})`} strokeWidth={w} strokeLinecap="square" />
+                  {hasBranch && (
+                    <line x1={x2} y1={y2} x2={bx} y2={by}
+                      stroke={`rgba(59,130,246,${(op*0.6).toFixed(2)})`} strokeWidth={0.5} />
+                  )}
+                  {has2nd && (
+                    <line x1={(x1+x2)/2} y1={(y1+y2)/2} x2={b2x} y2={b2y}
+                      stroke="rgba(96,165,250,0.15)" strokeWidth={0.4} />
+                  )}
+                </g>
+              )
+            })}
+
+            {/* Mid-ring arc segments */}
+            <circle cx={490} cy={205} r={158} fill="none" stroke="rgba(96,165,250,0.25)"  strokeWidth={1}   strokeDasharray="42 16 22 16" />
+            <circle cx={490} cy={205} r={132} fill="none" stroke="rgba(59,130,246,0.2)"  strokeWidth={0.8} strokeDasharray="26 20" />
+            <circle cx={490} cy={205} r={110} fill="none" stroke="rgba(147,197,253,0.28)"  strokeWidth={1}   strokeDasharray="32 11 12 11" />
+
+            {/* Rotating sweep arm */}
+            <g style={{ transformOrigin: '490px 205px', animation: 'sweepRotate 7s linear infinite' }}>
+              <line x1={490} y1={205} x2={706} y2={205} stroke="rgba(96,165,250,0.55)" strokeWidth={1.5} />
+              <circle cx={706} cy={205} r={4.5} fill="rgba(147,197,253,0.85)" />
+              <circle cx={706} cy={205} r={8}   fill="none" stroke="rgba(59,130,246,0.35)" strokeWidth={1} />
+            </g>
+
+            {/* Inner fast-spinning orbital rings */}
+            <circle cx={490} cy={205} r={86} fill="none" stroke="rgba(147,197,253,0.88)" strokeWidth={2} strokeDasharray="24 9 8 9">
+              <animateTransform attributeName="transform" type="rotate" from="0 490 205" to="-360 490 205" dur="3.5s" repeatCount="indefinite" />
+            </circle>
+            <circle cx={490} cy={205} r={93} fill="none" stroke="rgba(96,165,250,0.38)" strokeWidth={1} strokeDasharray="12 15">
+              <animateTransform attributeName="transform" type="rotate" from="0 490 205" to="360 490 205" dur="9s" repeatCount="indefinite" />
+            </circle>
+
+            {/* HUD frame — top-left */}
+            <line x1={44} y1={16} x2={290} y2={16} stroke="rgba(59,130,246,0.6)" strokeWidth={1.5} />
+            <line x1={44} y1={16} x2={44}  y2={42} stroke="rgba(59,130,246,0.6)" strokeWidth={1.5} />
+            <line x1={66} y1={26} x2={255} y2={26} stroke="rgba(30,64,175,0.4)" strokeWidth={1} />
+            <rect x={47} y={30} width={32} height={5} rx={1} fill="rgba(96,165,250,0.35)" />
+            <rect x={87} y={30} width={20} height={5} rx={1} fill="rgba(59,130,246,0.28)" />
+            <rect x={115} y={30} width={12} height={5} rx={1} fill="rgba(30,64,175,0.22)" />
+
+            {/* HUD frame — top-right */}
+            <line x1={690} y1={16} x2={936} y2={16} stroke="rgba(59,130,246,0.6)" strokeWidth={1.5} />
+            <line x1={936} y1={16} x2={936} y2={42} stroke="rgba(59,130,246,0.6)" strokeWidth={1.5} />
+            <line x1={725} y1={26} x2={914} y2={26} stroke="rgba(30,64,175,0.4)" strokeWidth={1} />
+            <rect x={861} y={30} width={32} height={5} rx={1} fill="rgba(96,165,250,0.35)" />
+            <rect x={843} y={30} width={14} height={5} rx={1} fill="rgba(59,130,246,0.28)" />
+
+            {/* Side tick marks */}
+            {[48,66,84,102,120,138,156].map((y, i) => (
+              <g key={i}>
+                <line x1={936} y1={y} x2={936+(i%3===0?16:10)} y2={y} stroke="rgba(59,130,246,0.45)" strokeWidth={1} />
+                <line x1={44}  y1={y} x2={44 -(i%3===0?16:10)} y2={y} stroke="rgba(59,130,246,0.45)" strokeWidth={1} />
+              </g>
+            ))}
+
+            {/* Corner node indicators */}
+            <circle cx={924} cy={275} r={11} fill="none" stroke="rgba(59,130,246,0.55)" strokeWidth={1.5} strokeDasharray="5 3" />
+            <circle cx={924} cy={275} r={4.5} fill="rgba(96,165,250,0.55)" />
+            <circle cx={56}  cy={275} r={11} fill="none" stroke="rgba(59,130,246,0.55)" strokeWidth={1.5} strokeDasharray="5 3" />
+            <circle cx={56}  cy={275} r={4.5} fill="rgba(96,165,250,0.55)" />
+          </svg>
+
+          {/* ORB + PANEL — pointer-events re-enabled */}
+          <div style={{ position: 'absolute', top: 137, left: '50%', transform: 'translateX(-50%)', pointerEvents: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+
+            {/* Command Panel */}
+            {orbOpen && (
+              <div style={{
+                position: 'absolute', top: 150, left: '50%', transform: 'translateX(-50%)',
+                width: 430, background: 'rgba(5,2,0,0.98)',
+                border: '1px solid rgba(96,165,250,0.35)', borderRadius: 18, overflow: 'hidden',
+                boxShadow: '0 32px 80px rgba(0,0,0,0.95), 0 0 0 1px rgba(96,165,250,0.06), 0 0 80px rgba(59,130,246,0.12)',
+                animation: 'cmdSlideUp 0.22s ease',
+              }}>
+                <div style={{ padding: '14px 18px 13px', borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'linear-gradient(135deg,rgba(30,64,175,0.18),rgba(15,32,87,0.08))', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                    <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(30,64,175,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', border: '1px solid rgba(96,165,250,0.4)' }}>
+                      <img src="/lh-logo.png" style={{ width: 20, height: 20, objectFit: 'contain', filter: 'brightness(0) invert(1)' }} />
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 800, fontSize: 13, color: '#dbeafe' }}>Lion-Heart Command</div>
+                      <div style={{ fontSize: 10, color: '#93c5fd', letterSpacing: '0.08em', textTransform: 'uppercase', marginTop: 1 }}>9 agents · always on</div>
+                    </div>
+                  </div>
+                  <button onClick={() => setOrbOpen(false)} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: '#64748b', cursor: 'pointer', fontSize: 16, lineHeight: 1, padding: '4px 8px', borderRadius: 6 }}>×</button>
+                </div>
+                <div style={{ maxHeight: 340, overflowY: 'auto', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 11 }}>
+                  {orbMessages.length === 0 && (
+                    <div style={{ color: '#475569', fontSize: 13, textAlign: 'center', padding: '24px 0' }}>
+                      <div style={{ fontSize: 26, marginBottom: 8 }}>🦁</div>
+                      Ask anything — the right agent picks up.
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, justifyContent: 'center', marginTop: 10 }}>
+                        {['Donny','Mark','Boris','Svetlana','Morgan','Tara','Owen','Priya','Nina'].map(n => {
+                          const ac = AGENT_COLORS[n.toLowerCase()] ?? '#60a5fa'
+                          return <span key={n} style={{ background: ac+'18', color: ac, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10 }}>{n}</span>
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  {orbMessages.map((m, i) => {
+                    if (m.role === 'user') return (
+                      <div key={i} style={{ alignSelf: 'flex-end', background: 'linear-gradient(135deg,#1e40af,#1e3a8a)', color: '#dbeafe', padding: '10px 14px', borderRadius: '14px 14px 3px 14px', maxWidth: '80%', fontSize: 13, lineHeight: 1.55 }}>{m.content}</div>
+                    )
+                    const agentId = m.agent ?? 'donny'
+                    const ac = AGENT_COLORS[agentId] ?? '#60a5fa'
+                    const agentName = agentId.charAt(0).toUpperCase() + agentId.slice(1)
                     return (
-                      <div key={o.orderNumber} onClick={() => setExpandedOrder(exp ? null : o.orderNumber)}
-                        style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 8, padding: '12px 16px', cursor: 'pointer' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                            <span style={{ fontWeight: 700, fontSize: 14 }}>{o.orderNumber}</span>
-                            <span style={{ color: '#94a3b8', fontSize: 13 }}>{o.customer}{o.company ? ` · ${o.company}` : ''}</span>
-                            {o.itemCount > 0 && <span style={{ color: '#475569', fontSize: 12 }}>{o.itemCount} item{o.itemCount !== 1 ? 's' : ''}</span>}
-                          </div>
-                          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                            <span style={{ background: sc + '18', color: sc, fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{o.status}</span>
-                            <span style={{ color: '#475569', fontSize: 12 }}>{o.orderedDate ? new Date(o.orderedDate).toLocaleDateString() : ''}</span>
-                            <span style={{ color: '#475569', fontSize: 11 }}>{exp ? '▲' : '▼'}</span>
-                          </div>
+                      <div key={i} style={{ alignSelf: 'flex-start', maxWidth: '88%' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                          <div style={{ width: 22, height: 22, borderRadius: '50%', background: ac+'20', border: `1.5px solid ${ac}60`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: ac }}>{agentName[0]}</div>
+                          <span style={{ fontSize: 11, fontWeight: 800, color: ac, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{agentName}</span>
                         </div>
-                        {exp && (
-                          <div style={{ marginTop: 12, borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 12, fontSize: 13 }}>
-                            {o.email && <div style={{ color: '#94a3b8', marginBottom: 6 }}>📧 {o.email}</div>}
-                            {o.shippingAddress && <div style={{ color: '#94a3b8', marginBottom: 10 }}>📍 {o.shippingAddress}</div>}
-                            {o.items?.length > 0 && (
-                              <div style={{ marginBottom: 10 }}>
-                                <div style={{ color: '#475569', fontSize: 11, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Items</div>
-                                {o.items.map((item: any, i: number) => (
-                                  <div key={i} style={{ color: '#cbd5e1', padding: '2px 0' }}>{item.qty}× {item.name || item.sku}</div>
-                                ))}
-                              </div>
-                            )}
-                            {o.tracking?.length > 0 ? (
-                              <div>
-                                <div style={{ color: '#475569', fontSize: 11, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Tracking</div>
-                                {o.tracking.map((t: any, i: number) => (
-                                  <div key={i} style={{ color: '#10b981', fontFamily: 'monospace', fontSize: 13 }}>{t.carrier}: {t.tracking}</div>
-                                ))}
-                              </div>
-                            ) : <div style={{ color: '#475569', fontSize: 12 }}>No tracking yet</div>}
-                          </div>
-                        )}
+                        <div style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${ac}22`, padding: '10px 14px', borderRadius: '3px 14px 14px 14px', fontSize: 13, lineHeight: 1.55, color: '#e2e8f0' }}>{m.content}</div>
                       </div>
                     )
                   })}
+                  {orbSending && (
+                    <div style={{ alignSelf: 'flex-start', display: 'flex', gap: 5, padding: '11px 16px', background: 'rgba(96,165,250,0.06)', borderRadius: '3px 14px 14px 14px', border: '1px solid rgba(96,165,250,0.2)' }}>
+                      {[0,160,320].map(d => <span key={d} style={{ width: 7, height: 7, borderRadius: '50%', background: '#60a5fa', display: 'inline-block', animation: `orbDot 1.3s ${d}ms infinite` }} />)}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          )}
+                <div style={{ padding: '11px 14px', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', gap: 8 }}>
+                  <input autoFocus value={orbInput} onChange={e => setOrbInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && sendOrbMessage()}
+                    placeholder="Ask the team anything…"
+                    style={{ flex: 1, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(96,165,250,0.3)', color: '#f1f5f9', padding: '10px 14px', borderRadius: 10, fontSize: 13, outline: 'none' }} />
+                  <button onClick={sendOrbMessage} disabled={orbSending}
+                    style={{ background: 'linear-gradient(135deg,#3b82f6,#1e40af)', border: 'none', color: '#dbeafe', padding: '10px 16px', borderRadius: 10, cursor: 'pointer', fontSize: 15, fontWeight: 800, boxShadow: '0 4px 14px rgba(59,130,246,0.5)', opacity: orbSending ? 0.6 : 1 }}>↑</button>
+                </div>
+              </div>
+            )}
+
+            {/* Spinning dashed rings */}
+            <div style={{ position: 'absolute', top: -25, left: -25, right: -25, bottom: -25, borderRadius: '50%', border: '1.5px dashed rgba(96,165,250,0.5)', animation: 'orbRingSpin 10s linear infinite', pointerEvents: 'none' }} />
+            <div style={{ position: 'absolute', top: -36, left: -36, right: -36, bottom: -36, borderRadius: '50%', border: '1px dashed rgba(59,130,246,0.3)', animation: 'orbRingSpinR 17s linear infinite', pointerEvents: 'none' }} />
+
+            {/* Outer glow ring */}
+            <div style={{ position: 'absolute', top: -14, left: -14, right: -14, bottom: -14, borderRadius: '50%', border: '2px solid rgba(147,197,253,0.78)', boxShadow: '0 0 26px rgba(96,165,250,0.85), 0 0 65px rgba(59,130,246,0.48), inset 0 0 22px rgba(96,165,250,0.18)', animation: 'ringGlow 2.4s ease-in-out infinite', pointerEvents: 'none' }} />
+
+            {/* Amber plasma ball */}
+            <button onClick={() => setOrbOpen(o => !o)} title="Lion-Heart Command"
+              style={{
+                width: 136, height: 136, borderRadius: '50%', border: 'none', cursor: 'pointer',
+                background: orbState === 'responding'
+                  ? 'radial-gradient(circle at 38% 33%, #ecfdf5 0%, #6ee7b7 10%, #10b981 30%, #065f46 58%, #022c22 84%)'
+                  : 'radial-gradient(circle at 38% 33%, #ffffff 0%, #dbeafe 10%, #93c5fd 22%, #3b82f6 42%, #1e40af 65%, #0f2057 85%)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                animation: orbState === 'thinking'   ? 'orbThink 0.9s ease-in-out infinite'
+                         : orbState === 'responding' ? 'orbRespond 1.1s ease-in-out infinite'
+                         : 'orbCore 3.5s ease-in-out infinite',
+                transition: 'background 0.5s',
+                position: 'relative',
+              }}>
+              <div style={{ position: 'absolute', top: 12, left: 20, width: 44, height: 44, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,255,255,0.95) 0%, transparent 72%)', pointerEvents: 'none' }} />
+              <div style={{ position: 'absolute', top: 38, left: 10, width: 20, height: 20, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,255,255,0.38) 0%, transparent 70%)', pointerEvents: 'none' }} />
+              <img src="/lh-logo.png" style={{ width: 64, height: 64, objectFit: 'contain', filter: 'brightness(0) invert(1) drop-shadow(0 2px 20px rgba(0,0,0,0.95))', position: 'relative', flexShrink: 0 }} />
+            </button>
+          </div>
         </div>
+
+
 
         {/* ── METRIC TILES ── */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 28 }}>
@@ -601,247 +737,6 @@ export default function Dashboard() {
           </Card>
         )}
 
-      </div>
-
-      {/* ── COMMAND ORB HUD ── */}
-      <style>{`
-        @keyframes orbCore {
-          0%   { box-shadow: 0 0 50px rgba(147,197,253,1), 0 0 110px rgba(96,165,250,0.7), 0 0 220px rgba(59,130,246,0.4), 0 0 360px rgba(30,64,175,0.18); }
-          38%  { box-shadow: 0 0 28px rgba(255,255,255,0.9), 0 0 65px rgba(147,197,253,0.7), 0 0 140px rgba(96,165,250,0.3), 0 0 240px rgba(59,130,246,0.12); }
-          70%  { box-shadow: 0 0 80px rgba(255,255,255,1), 0 0 170px rgba(147,197,253,0.9), 0 0 300px rgba(96,165,250,0.6), 0 0 480px rgba(59,130,246,0.25); }
-          100% { box-shadow: 0 0 50px rgba(147,197,253,1), 0 0 110px rgba(96,165,250,0.7), 0 0 220px rgba(59,130,246,0.4), 0 0 360px rgba(30,64,175,0.18); }
-        }
-        @keyframes orbThink {
-          0%, 100% { box-shadow: 0 0 0 0 rgba(96,165,250,0.9), 0 0 40px rgba(96,165,250,0.7); }
-          50%       { box-shadow: 0 0 0 28px rgba(96,165,250,0), 0 0 80px rgba(96,165,250,0.3); }
-        }
-        @keyframes orbRespond {
-          0%, 100% { box-shadow: 0 0 0 0 rgba(16,185,129,0.9), 0 0 30px rgba(16,185,129,0.6); }
-          50%       { box-shadow: 0 0 0 22px rgba(16,185,129,0), 0 0 50px rgba(16,185,129,0.3); }
-        }
-        @keyframes ringGlow {
-          0%, 100% { opacity: 0.75; box-shadow: 0 0 20px rgba(96,165,250,0.75), 0 0 55px rgba(59,130,246,0.4); }
-          50%       { opacity: 1;    box-shadow: 0 0 38px rgba(147,197,253,1),   0 0 95px rgba(96,165,250,0.6); }
-        }
-        @keyframes orbRingSpin  { from { transform: rotate(0deg);    } to { transform: rotate(360deg);  } }
-        @keyframes orbRingSpinR { from { transform: rotate(0deg);    } to { transform: rotate(-360deg); } }
-        @keyframes sweepRotate  { from { transform: rotate(0deg);    } to { transform: rotate(360deg);  } }
-        @keyframes outerPulse   { 0%,100% { opacity: 0.45; } 50% { opacity: 0.78; } }
-        @keyframes cmdSlideUp {
-          from { opacity: 0; transform: translateY(20px) translateX(-50%) scale(0.96); }
-          to   { opacity: 1; transform: translateY(0)    translateX(-50%) scale(1); }
-        }
-        @keyframes orbDot {
-          0%, 80%, 100% { opacity: 0.2; transform: scale(0.7); }
-          40%            { opacity: 1;   transform: scale(1); }
-        }
-      `}</style>
-
-      {/* Full-width HUD fixed at bottom */}
-      <div style={{ position: 'fixed', top: orbTop, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, width: 980, height: 300, pointerEvents: 'none' }}>
-
-        {/* SVG HUD LAYER */}
-        <svg width={980} height={300} viewBox="0 0 980 300"
-          style={{ position: 'absolute', top: 0, left: 0, overflow: 'visible', pointerEvents: 'none' }}>
-          <defs>
-            <radialGradient id="coreAura" cx="50%" cy="50%" r="50%">
-              <stop offset="0%"   stopColor="rgba(147,197,253,0.25)" />
-              <stop offset="55%"  stopColor="rgba(96,165,250,0.06)" />
-              <stop offset="100%" stopColor="rgba(30,64,175,0)" />
-            </radialGradient>
-          </defs>
-
-          {/* Ambient core glow */}
-          <ellipse cx={490} cy={205} rx={240} ry={195} fill="url(#coreAura)" />
-
-          {/* Outer containing rings */}
-          <circle cx={490} cy={205} r={232} fill="none" stroke="rgba(30,64,175,0.55)" strokeWidth={1.5} strokeDasharray="18 7" style={{ animation: 'outerPulse 3.2s ease-in-out infinite' }} />
-          <circle cx={490} cy={205} r={220} fill="none" stroke="rgba(59,130,246,0.32)" strokeWidth={1}   strokeDasharray="9 12" />
-          <circle cx={490} cy={205} r={208} fill="none" stroke="rgba(96,165,250,0.18)" strokeWidth={0.7} />
-
-          {/* Dense radial network — 64 lines */}
-          {Array.from({length: 64}, (_, i) => {
-            const angleRad = i * 5.625 * Math.PI / 180
-            const len = 85 + (i * 11 % 45) + (i * 7 % 35)
-            const startR = 78, cx = 490, cy = 205
-            const x1 = cx + startR * Math.cos(angleRad)
-            const y1 = cy + startR * Math.sin(angleRad)
-            const x2 = cx + (startR + len) * Math.cos(angleRad)
-            const y2 = cy + (startR + len) * Math.sin(angleRad)
-            const op = parseFloat((0.2 + (i * 3 % 5) * 0.1).toFixed(2))
-            const w  = i % 4 === 0 ? 1.2 : i % 2 === 0 ? 0.75 : 0.45
-            const hasBranch = i % 5 === 0
-            const bAngle = angleRad + (i % 2 === 0 ? Math.PI / 2 : -Math.PI / 2)
-            const bLen = 16 + (i * 4 % 24)
-            const bx = x2 + bLen * Math.cos(bAngle)
-            const by = y2 + bLen * Math.sin(bAngle)
-            const has2nd = i % 16 === 0
-            const b2x = (x1 + x2) / 2 + 12 * Math.cos(bAngle)
-            const b2y = (y1 + y2) / 2 + 12 * Math.sin(bAngle)
-            return (
-              <g key={i}>
-                <line x1={x1} y1={y1} x2={x2} y2={y2}
-                  stroke={`rgba(96,165,250,${op})`} strokeWidth={w} strokeLinecap="square" />
-                {hasBranch && (
-                  <line x1={x2} y1={y2} x2={bx} y2={by}
-                    stroke={`rgba(59,130,246,${(op*0.6).toFixed(2)})`} strokeWidth={0.5} />
-                )}
-                {has2nd && (
-                  <line x1={(x1+x2)/2} y1={(y1+y2)/2} x2={b2x} y2={b2y}
-                    stroke="rgba(96,165,250,0.15)" strokeWidth={0.4} />
-                )}
-              </g>
-            )
-          })}
-
-          {/* Mid-ring arc segments */}
-          <circle cx={490} cy={205} r={158} fill="none" stroke="rgba(96,165,250,0.25)"  strokeWidth={1}   strokeDasharray="42 16 22 16" />
-          <circle cx={490} cy={205} r={132} fill="none" stroke="rgba(59,130,246,0.2)"  strokeWidth={0.8} strokeDasharray="26 20" />
-          <circle cx={490} cy={205} r={110} fill="none" stroke="rgba(147,197,253,0.28)"  strokeWidth={1}   strokeDasharray="32 11 12 11" />
-
-          {/* Rotating sweep arm */}
-          <g style={{ transformOrigin: '490px 205px', animation: 'sweepRotate 7s linear infinite' }}>
-            <line x1={490} y1={205} x2={706} y2={205} stroke="rgba(96,165,250,0.55)" strokeWidth={1.5} />
-            <circle cx={706} cy={205} r={4.5} fill="rgba(147,197,253,0.85)" />
-            <circle cx={706} cy={205} r={8}   fill="none" stroke="rgba(59,130,246,0.35)" strokeWidth={1} />
-          </g>
-
-          {/* Inner fast-spinning orbital rings */}
-          <circle cx={490} cy={205} r={86} fill="none" stroke="rgba(147,197,253,0.88)" strokeWidth={2} strokeDasharray="24 9 8 9">
-            <animateTransform attributeName="transform" type="rotate" from="0 490 205" to="-360 490 205" dur="3.5s" repeatCount="indefinite" />
-          </circle>
-          <circle cx={490} cy={205} r={93} fill="none" stroke="rgba(96,165,250,0.38)" strokeWidth={1} strokeDasharray="12 15">
-            <animateTransform attributeName="transform" type="rotate" from="0 490 205" to="360 490 205" dur="9s" repeatCount="indefinite" />
-          </circle>
-
-          {/* HUD frame — top-left */}
-          <line x1={44} y1={16} x2={290} y2={16} stroke="rgba(59,130,246,0.6)" strokeWidth={1.5} />
-          <line x1={44} y1={16} x2={44}  y2={42} stroke="rgba(59,130,246,0.6)" strokeWidth={1.5} />
-          <line x1={66} y1={26} x2={255} y2={26} stroke="rgba(30,64,175,0.4)" strokeWidth={1} />
-          <rect x={47} y={30} width={32} height={5} rx={1} fill="rgba(96,165,250,0.35)" />
-          <rect x={87} y={30} width={20} height={5} rx={1} fill="rgba(59,130,246,0.28)" />
-          <rect x={115} y={30} width={12} height={5} rx={1} fill="rgba(30,64,175,0.22)" />
-
-          {/* HUD frame — top-right */}
-          <line x1={690} y1={16} x2={936} y2={16} stroke="rgba(59,130,246,0.6)" strokeWidth={1.5} />
-          <line x1={936} y1={16} x2={936} y2={42} stroke="rgba(59,130,246,0.6)" strokeWidth={1.5} />
-          <line x1={725} y1={26} x2={914} y2={26} stroke="rgba(30,64,175,0.4)" strokeWidth={1} />
-          <rect x={861} y={30} width={32} height={5} rx={1} fill="rgba(96,165,250,0.35)" />
-          <rect x={843} y={30} width={14} height={5} rx={1} fill="rgba(59,130,246,0.28)" />
-
-          {/* Side tick marks */}
-          {[48,66,84,102,120,138,156].map((y, i) => (
-            <g key={i}>
-              <line x1={936} y1={y} x2={936+(i%3===0?16:10)} y2={y} stroke="rgba(59,130,246,0.45)" strokeWidth={1} />
-              <line x1={44}  y1={y} x2={44 -(i%3===0?16:10)} y2={y} stroke="rgba(59,130,246,0.45)" strokeWidth={1} />
-            </g>
-          ))}
-
-          {/* Corner node indicators */}
-          <circle cx={924} cy={275} r={11} fill="none" stroke="rgba(59,130,246,0.55)" strokeWidth={1.5} strokeDasharray="5 3" />
-          <circle cx={924} cy={275} r={4.5} fill="rgba(96,165,250,0.55)" />
-          <circle cx={56}  cy={275} r={11} fill="none" stroke="rgba(59,130,246,0.55)" strokeWidth={1.5} strokeDasharray="5 3" />
-          <circle cx={56}  cy={275} r={4.5} fill="rgba(96,165,250,0.55)" />
-        </svg>
-
-        {/* ORB + PANEL — pointer-events re-enabled */}
-        <div style={{ position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)', pointerEvents: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-
-          {/* Command Panel */}
-          {orbOpen && (
-            <div style={{
-              position: 'absolute', top: 150, left: '50%', transform: 'translateX(-50%)',
-              width: 430, background: 'rgba(5,2,0,0.98)',
-              border: '1px solid rgba(96,165,250,0.35)', borderRadius: 18, overflow: 'hidden',
-              boxShadow: '0 32px 80px rgba(0,0,0,0.95), 0 0 0 1px rgba(96,165,250,0.06), 0 0 80px rgba(59,130,246,0.12)',
-              animation: 'cmdSlideUp 0.22s ease',
-            }}>
-              <div style={{ padding: '14px 18px 13px', borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'linear-gradient(135deg,rgba(30,64,175,0.18),rgba(15,32,87,0.08))', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-                  <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(30,64,175,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', border: '1px solid rgba(96,165,250,0.4)' }}>
-                    <img src="/lh-logo.png" style={{ width: 20, height: 20, objectFit: 'contain', filter: 'brightness(0) invert(1)' }} />
-                  </div>
-                  <div>
-                    <div style={{ fontWeight: 800, fontSize: 13, color: '#dbeafe' }}>Lion-Heart Command</div>
-                    <div style={{ fontSize: 10, color: '#93c5fd', letterSpacing: '0.08em', textTransform: 'uppercase', marginTop: 1 }}>9 agents · always on</div>
-                  </div>
-                </div>
-                <button onClick={() => setOrbOpen(false)} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: '#64748b', cursor: 'pointer', fontSize: 16, lineHeight: 1, padding: '4px 8px', borderRadius: 6 }}>×</button>
-              </div>
-              <div style={{ maxHeight: 340, overflowY: 'auto', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 11 }}>
-                {orbMessages.length === 0 && (
-                  <div style={{ color: '#475569', fontSize: 13, textAlign: 'center', padding: '24px 0' }}>
-                    <div style={{ fontSize: 26, marginBottom: 8 }}>🦁</div>
-                    Ask anything — the right agent picks up.
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, justifyContent: 'center', marginTop: 10 }}>
-                      {['Donny','Mark','Boris','Svetlana','Morgan','Tara','Owen','Priya','Nina'].map(n => {
-                        const ac = AGENT_COLORS[n.toLowerCase()] ?? '#60a5fa'
-                        return <span key={n} style={{ background: ac+'18', color: ac, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10 }}>{n}</span>
-                      })}
-                    </div>
-                  </div>
-                )}
-                {orbMessages.map((m, i) => {
-                  if (m.role === 'user') return (
-                    <div key={i} style={{ alignSelf: 'flex-end', background: 'linear-gradient(135deg,#1e40af,#1e3a8a)', color: '#dbeafe', padding: '10px 14px', borderRadius: '14px 14px 3px 14px', maxWidth: '80%', fontSize: 13, lineHeight: 1.55 }}>{m.content}</div>
-                  )
-                  const agentId = m.agent ?? 'donny'
-                  const ac = AGENT_COLORS[agentId] ?? '#60a5fa'
-                  const agentName = agentId.charAt(0).toUpperCase() + agentId.slice(1)
-                  return (
-                    <div key={i} style={{ alignSelf: 'flex-start', maxWidth: '88%' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                        <div style={{ width: 22, height: 22, borderRadius: '50%', background: ac+'20', border: `1.5px solid ${ac}60`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: ac }}>{agentName[0]}</div>
-                        <span style={{ fontSize: 11, fontWeight: 800, color: ac, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{agentName}</span>
-                      </div>
-                      <div style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${ac}22`, padding: '10px 14px', borderRadius: '3px 14px 14px 14px', fontSize: 13, lineHeight: 1.55, color: '#e2e8f0' }}>{m.content}</div>
-                    </div>
-                  )
-                })}
-                {orbSending && (
-                  <div style={{ alignSelf: 'flex-start', display: 'flex', gap: 5, padding: '11px 16px', background: 'rgba(96,165,250,0.06)', borderRadius: '3px 14px 14px 14px', border: '1px solid rgba(96,165,250,0.2)' }}>
-                    {[0,160,320].map(d => <span key={d} style={{ width: 7, height: 7, borderRadius: '50%', background: '#60a5fa', display: 'inline-block', animation: `orbDot 1.3s ${d}ms infinite` }} />)}
-                  </div>
-                )}
-              </div>
-              <div style={{ padding: '11px 14px', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', gap: 8 }}>
-                <input autoFocus value={orbInput} onChange={e => setOrbInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && sendOrbMessage()}
-                  placeholder="Ask the team anything…"
-                  style={{ flex: 1, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(96,165,250,0.3)', color: '#f1f5f9', padding: '10px 14px', borderRadius: 10, fontSize: 13, outline: 'none' }} />
-                <button onClick={sendOrbMessage} disabled={orbSending}
-                  style={{ background: 'linear-gradient(135deg,#3b82f6,#1e40af)', border: 'none', color: '#dbeafe', padding: '10px 16px', borderRadius: 10, cursor: 'pointer', fontSize: 15, fontWeight: 800, boxShadow: '0 4px 14px rgba(59,130,246,0.5)', opacity: orbSending ? 0.6 : 1 }}>↑</button>
-              </div>
-            </div>
-          )}
-
-          {/* Spinning dashed rings */}
-          <div style={{ position: 'absolute', top: -25, left: -25, right: -25, bottom: -25, borderRadius: '50%', border: '1.5px dashed rgba(96,165,250,0.5)', animation: 'orbRingSpin 10s linear infinite', pointerEvents: 'none' }} />
-          <div style={{ position: 'absolute', top: -36, left: -36, right: -36, bottom: -36, borderRadius: '50%', border: '1px dashed rgba(59,130,246,0.3)', animation: 'orbRingSpinR 17s linear infinite', pointerEvents: 'none' }} />
-
-          {/* Outer glow ring */}
-          <div style={{ position: 'absolute', top: -14, left: -14, right: -14, bottom: -14, borderRadius: '50%', border: '2px solid rgba(147,197,253,0.78)', boxShadow: '0 0 26px rgba(96,165,250,0.85), 0 0 65px rgba(59,130,246,0.48), inset 0 0 22px rgba(96,165,250,0.18)', animation: 'ringGlow 2.4s ease-in-out infinite', pointerEvents: 'none' }} />
-
-          {/* Amber plasma ball */}
-          <button onClick={() => setOrbOpen(o => !o)} title="Lion-Heart Command"
-            style={{
-              width: 136, height: 136, borderRadius: '50%', border: 'none', cursor: 'pointer',
-              background: orbState === 'responding'
-                ? 'radial-gradient(circle at 38% 33%, #ecfdf5 0%, #6ee7b7 10%, #10b981 30%, #065f46 58%, #022c22 84%)'
-                : 'radial-gradient(circle at 38% 33%, #ffffff 0%, #dbeafe 10%, #93c5fd 22%, #3b82f6 42%, #1e40af 65%, #0f2057 85%)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              animation: orbState === 'thinking'   ? 'orbThink 0.9s ease-in-out infinite'
-                       : orbState === 'responding' ? 'orbRespond 1.1s ease-in-out infinite'
-                       : 'orbCore 3.5s ease-in-out infinite',
-              transition: 'background 0.5s',
-              position: 'relative',
-            }}>
-            <div style={{ position: 'absolute', top: 12, left: 20, width: 44, height: 44, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,255,255,0.95) 0%, transparent 72%)', pointerEvents: 'none' }} />
-            <div style={{ position: 'absolute', top: 38, left: 10, width: 20, height: 20, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,255,255,0.38) 0%, transparent 70%)', pointerEvents: 'none' }} />
-            <img src="/lh-logo.png" style={{ width: 64, height: 64, objectFit: 'contain', filter: 'brightness(0) invert(1) drop-shadow(0 2px 20px rgba(0,0,0,0.95))', position: 'relative', flexShrink: 0 }} />
-          </button>
-        </div>
-      </div>
-
-    </div>
+      </div>    </div>
   )
 }
