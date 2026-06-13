@@ -80,6 +80,12 @@ export default function Dashboard() {
   const [expressOrders, setExpressOrders] = useState<any[]>([])
   const [unallocOrders, setUnallocOrders] = useState<any[]>([])
   const [watchLoading, setWatchLoading] = useState(true)
+  // Command Orb
+  const [orbOpen, setOrbOpen] = useState(false)
+  const [orbInput, setOrbInput] = useState('')
+  const [orbSending, setOrbSending] = useState(false)
+  const [orbMessages, setOrbMessages] = useState<Array<{role:'user'|'agent'; agent?: string; content: string}>>([])
+  const [orbState, setOrbState] = useState<'idle'|'thinking'|'responding'>('idle')
 
   useEffect(() => {
     const t = setInterval(() => setTime(new Date()), 1000)
@@ -163,6 +169,30 @@ export default function Dashboard() {
     })
     fetchQueue()
     setActing(null)
+  }
+
+  const sendOrbMessage = async () => {
+    if (!orbInput.trim() || orbSending) return
+    const msg = orbInput.trim()
+    setOrbInput('')
+    setOrbSending(true)
+    setOrbState('thinking')
+    setOrbMessages(prev => [...prev, { role: 'user', content: msg }])
+    try {
+      const res = await fetch('/api/command', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: msg }),
+      })
+      const data = await res.json()
+      setOrbMessages(prev => [...prev, { role: 'agent', agent: data.agent, content: data.response }])
+      setOrbState('responding')
+      setTimeout(() => setOrbState('idle'), 3000)
+    } catch {
+      setOrbMessages(prev => [...prev, { role: 'agent', agent: 'donny', content: 'Something went wrong. Try again.' }])
+      setOrbState('idle')
+    }
+    setOrbSending(false)
   }
 
   const searchOrders = async (q: string) => {
@@ -566,6 +596,152 @@ export default function Dashboard() {
         )}
 
       </div>
+
+      {/* ── COMMAND ORB ── */}
+      <style>{`
+        @keyframes orbPulse {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(139,92,246,0.7), 0 0 20px rgba(139,92,246,0.4); }
+          50%       { box-shadow: 0 0 0 14px rgba(139,92,246,0), 0 0 32px rgba(139,92,246,0.2); }
+        }
+        @keyframes orbThink {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(245,158,11,0.8), 0 0 24px rgba(245,158,11,0.5); }
+          50%       { box-shadow: 0 0 0 18px rgba(245,158,11,0), 0 0 40px rgba(245,158,11,0.25); }
+        }
+        @keyframes orbRespond {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(16,185,129,0.8), 0 0 20px rgba(16,185,129,0.5); }
+          50%       { box-shadow: 0 0 0 14px rgba(16,185,129,0), 0 0 32px rgba(16,185,129,0.25); }
+        }
+        @keyframes cmdSlideUp {
+          from { opacity: 0; transform: translateY(16px) scale(0.97); }
+          to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @keyframes orbDot {
+          0%, 80%, 100% { opacity: 0.2; transform: scale(0.7); }
+          40%            { opacity: 1;   transform: scale(1); }
+        }
+      `}</style>
+
+      {/* Orb button */}
+      <div style={{ position: 'fixed', bottom: 28, right: 28, zIndex: 1000 }}>
+
+        {/* Command Panel */}
+        {orbOpen && (
+          <div style={{
+            position: 'absolute', bottom: 88, right: 0,
+            width: 360, background: 'rgba(10,10,20,0.95)',
+            border: '1px solid rgba(139,92,246,0.35)',
+            borderRadius: 16, overflow: 'hidden',
+            boxShadow: '0 24px 60px rgba(0,0,0,0.7), 0 0 0 1px rgba(139,92,246,0.15)',
+            animation: 'cmdSlideUp 0.2s ease',
+          }}>
+            {/* Panel header */}
+            <div style={{
+              padding: '14px 16px 12px',
+              borderBottom: '1px solid rgba(255,255,255,0.06)',
+              background: 'rgba(139,92,246,0.08)',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ fontSize: 14 }}>🦁</div>
+                <div style={{ fontWeight: 700, fontSize: 13, letterSpacing: '-0.01em' }}>Lion-Heart Command</div>
+              </div>
+              <button onClick={() => setOrbOpen(false)}
+                style={{ background: 'none', border: 'none', color: '#475569', cursor: 'pointer', fontSize: 18, lineHeight: 1, padding: 2 }}>×</button>
+            </div>
+
+            {/* Messages */}
+            <div style={{ maxHeight: 340, overflowY: 'auto', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {orbMessages.length === 0 && (
+                <div style={{ color: '#475569', fontSize: 13, textAlign: 'center', padding: '24px 0' }}>
+                  Ask anything — the right agent will answer.<br />
+                  <span style={{ fontSize: 11, marginTop: 6, display: 'block', color: '#334155' }}>Donny · Mark · Boris · Svetlana · Morgan · Tara · Owen · Priya · Nina</span>
+                </div>
+              )}
+              {orbMessages.map((m, i) => {
+                if (m.role === 'user') {
+                  return (
+                    <div key={i} style={{ alignSelf: 'flex-end', background: 'linear-gradient(135deg,#8b5cf6,#3b82f6)', color: '#fff', padding: '9px 13px', borderRadius: '12px 12px 3px 12px', maxWidth: '82%', fontSize: 13, lineHeight: 1.5 }}>
+                      {m.content}
+                    </div>
+                  )
+                }
+                const agentId = m.agent ?? 'donny'
+                const ac = AGENT_COLORS[agentId] ?? '#8b5cf6'
+                const agentName = agentId.charAt(0).toUpperCase() + agentId.slice(1)
+                return (
+                  <div key={i} style={{ alignSelf: 'flex-start', maxWidth: '88%' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
+                      <div style={{ width: 20, height: 20, borderRadius: '50%', background: ac + '22', border: `1.5px solid ${ac}55`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: ac }}>
+                        {agentName[0]}
+                      </div>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: ac, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{agentName}</span>
+                    </div>
+                    <div style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${ac}25`, padding: '9px 13px', borderRadius: '3px 12px 12px 12px', fontSize: 13, lineHeight: 1.5, color: '#e2e8f0' }}>
+                      {m.content}
+                    </div>
+                  </div>
+                )
+              })}
+              {orbSending && (
+                <div style={{ alignSelf: 'flex-start', display: 'flex', gap: 5, padding: '10px 14px', background: 'rgba(255,255,255,0.04)', borderRadius: '3px 12px 12px 12px', border: '1px solid rgba(255,255,255,0.07)' }}>
+                  {[0, 150, 300].map(d => (
+                    <span key={d} style={{ width: 6, height: 6, borderRadius: '50%', background: '#8b5cf6', display: 'inline-block', animation: `orbDot 1.2s ${d}ms infinite` }} />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Input */}
+            <div style={{ padding: '10px 12px', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', gap: 8 }}>
+              <input
+                autoFocus
+                value={orbInput}
+                onChange={e => setOrbInput(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && sendOrbMessage()}
+                placeholder="Ask the team anything…"
+                style={{
+                  flex: 1, background: 'rgba(255,255,255,0.04)',
+                  border: '1px solid rgba(255,255,255,0.1)', color: '#f1f5f9',
+                  padding: '9px 13px', borderRadius: 9, fontSize: 13, outline: 'none',
+                }}
+              />
+              <button onClick={sendOrbMessage} disabled={orbSending}
+                style={{
+                  background: 'linear-gradient(135deg,#8b5cf6,#3b82f6)',
+                  border: 'none', color: '#fff', padding: '9px 14px',
+                  borderRadius: 9, cursor: 'pointer', fontSize: 13, fontWeight: 700,
+                  opacity: orbSending ? 0.6 : 1,
+                }}>
+                ↑
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* The orb itself */}
+        <button
+          onClick={() => { setOrbOpen(o => !o) }}
+          title="Lion-Heart Command"
+          style={{
+            width: 72, height: 72, borderRadius: '50%',
+            background: orbState === 'thinking'
+              ? 'radial-gradient(circle, #f59e0b, #d97706)'
+              : orbState === 'responding'
+              ? 'radial-gradient(circle, #10b981, #059669)'
+              : 'radial-gradient(circle, #8b5cf6, #6d28d9)',
+            border: 'none', cursor: 'pointer',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2,
+            animation: orbState === 'thinking' ? 'orbThink 1s ease-in-out infinite'
+              : orbState === 'responding' ? 'orbRespond 1.2s ease-in-out infinite'
+              : 'orbPulse 2.5s ease-in-out infinite',
+            transition: 'background 0.4s',
+          }}
+        >
+          <span style={{ fontSize: 26, lineHeight: 1, filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))' }}>🦁</span>
+          <span style={{ fontSize: 8, fontWeight: 800, color: 'rgba(255,255,255,0.85)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>Command</span>
+        </button>
+      </div>
+
     </div>
   )
 }
