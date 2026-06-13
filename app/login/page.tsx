@@ -32,7 +32,7 @@ export default function LoginPage() {
   return (
     <div style={{
       minHeight: '100vh',
-      background: '#070711',
+      background: '#000000',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
@@ -63,15 +63,15 @@ export default function LoginPage() {
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: 36 }}>
           <div style={{
-            width: 72, height: 72,
-            background: '#0a0a0a',
-            borderRadius: 18,
+            width: 96, height: 96,
+            background: '#000',
+            borderRadius: 22,
             margin: '0 auto 18px',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 8px 30px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.08)',
+            boxShadow: '0 8px 30px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.1)',
             overflow: 'hidden',
           }}>
-            <img src="/lh-logo.png" alt="Lion-Heart" style={{ width: 54, height: 54, objectFit: 'contain' }} />
+            <img src="/lh-logo.png" alt="Lion-Heart" style={{ width: 78, height: 78, objectFit: 'contain' }} />
           </div>
 
           <div style={{ color: '#f1f5f9', fontSize: 22, fontWeight: 700, letterSpacing: '-0.02em' }}>

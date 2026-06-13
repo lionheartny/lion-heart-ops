@@ -170,7 +170,7 @@ export default function Dashboard() {
 
   return (
     <div style={{
-      background: '#070711', minHeight: '100vh', color: '#f1f5f9',
+      background: '#000000', minHeight: '100vh', color: '#f1f5f9',
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
     }}>
       <div style={{
@@ -188,12 +188,12 @@ export default function Dashboard() {
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
             <div style={{
-              width: 44, height: 44, borderRadius: 10, background: '#0a0a0a',
+              width: 64, height: 64, borderRadius: 12, background: '#000',
               display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-              boxShadow: '0 4px 20px rgba(139,92,246,0.3)', overflow: 'hidden',
-              border: '1px solid rgba(255,255,255,0.08)',
+              boxShadow: '0 4px 20px rgba(139,92,246,0.25)', overflow: 'hidden',
+              border: '1px solid rgba(255,255,255,0.1)',
             }}>
-              <img src="/lh-logo.png" alt="Lion-Heart" style={{ width: 34, height: 34, objectFit: 'contain' }} />
+              <img src="/lh-logo.png" alt="Lion-Heart" style={{ width: 52, height: 52, objectFit: 'contain' }} />
             </div>
             <div>
               <div style={{ fontWeight: 700, fontSize: 16, letterSpacing: '-0.02em', lineHeight: 1.2 }}>Lion-Heart</div>
