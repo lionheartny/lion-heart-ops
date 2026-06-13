@@ -35,11 +35,16 @@ export default function Dashboard() {
     supabase.from('agent_status').select('*').then(({ data }) => { if (data) setAgents(data) })
     supabase.from('metrics').select('*').then(({ data }) => { if (data) setMetrics(data) })
     fetchQueue()
+    // Trigger live Zenventory refresh on mount (updates metrics table → fires Realtime)
+    fetch('/api/metrics').catch(() => {})
     const ch = supabase.channel('rt')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'agent_status' }, () => {
         supabase.from('agent_status').select('*').then(({ data }) => { if (data) setAgents(data) })
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'approval_queue' }, fetchQueue)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'metrics' }, () => {
+        supabase.from('metrics').select('*').then(({ data }) => { if (data) setMetrics(data) })
+      })
       .subscribe()
     return () => { supabase.removeChannel(ch) }
   }, [])
