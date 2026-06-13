@@ -1,65 +1,178 @@
-import Image from "next/image";
+'use client'
+import { useEffect, useState } from 'react'
+import { supabase } from '@/lib/supabase'
 
-export default function Home() {
+const SC: Record<string, string> = { active: '#22c55e', needs_you: '#f59e0b', idle: '#6b7280' }
+const SL: Record<string, string> = { active: 'active', needs_you: 'needs you', idle: 'idle' }
+
+export default function Dashboard() {
+  const [agents, setAgents] = useState<any[]>([])
+  const [metrics, setMetrics] = useState<any[]>([])
+  const [selected, setSelected] = useState<any>(null)
+  const [activity, setActivity] = useState<any[]>([])
+  const [chatOpen, setChatOpen] = useState(false)
+  const [messages, setMessages] = useState<any[]>([])
+  const [input, setInput] = useState('')
+  const [sending, setSending] = useState(false)
+  const [time, setTime] = useState(new Date())
+
+  useEffect(() => {
+    const t = setInterval(() => setTime(new Date()), 1000)
+    return () => clearInterval(t)
+  }, [])
+
+  useEffect(() => {
+    supabase.from('agent_status').select('*').then(({ data }) => { if (data) setAgents(data) })
+    supabase.from('metrics').select('*').then(({ data }) => { if (data) setMetrics(data) })
+    const ch = supabase.channel('rt')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'agent_status' }, () => {
+        supabase.from('agent_status').select('*').then(({ data }) => { if (data) setAgents(data) })
+      })
+      .subscribe()
+    return () => { supabase.removeChannel(ch) }
+  }, [])
+
+  useEffect(() => {
+    if (!selected) return
+    supabase.from('agent_activity').select('*').eq('agent_id', selected.id)
+      .order('created_at', { ascending: false }).limit(5)
+      .then(({ data }) => { if (data) setActivity(data) })
+    supabase.from('chat_messages').select('*').eq('agent_id', selected.id)
+      .order('created_at')
+      .then(({ data }) => {
+        if (data) setMessages(data.map((m: any) => ({ role: m.role, content: m.content })))
+      })
+  }, [selected])
+
+  const sendMessage = async () => {
+    if (!input.trim() || !selected || sending) return
+    setSending(true)
+    const userMsg = { role: 'user', content: input }
+    const newMessages = [...messages, userMsg]
+    setMessages(newMessages)
+    setInput('')
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ agentId: selected.id, message: input, history: messages })
+    })
+    const data = await res.json()
+    setMessages([...newMessages, { role: 'agent', content: data.content }])
+    setSending(false)
+  }
+
+  const mm = Object.fromEntries(metrics.map((m: any) => [m.key, m]))
+  const held = parseInt(mm['held_for_you']?.value || '0')
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div style={{ background: '#0a0a0a', minHeight: '100vh', color: '#fff', fontFamily: 'system-ui,sans-serif', padding: '20px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
+        <div style={{ fontSize: '20px', fontWeight: 600 }}>Lion-Heart agent operations</div>
+        <div style={{ color: '#6b7280', fontSize: '14px' }}>{time.toLocaleTimeString()}</div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '12px', marginBottom: '24px' }}>
+        {[
+          { k: 'textline_status', l: 'Text line 848', c: '#22c55e' },
+          { k: 'open_tickets', l: 'Open tickets', c: '#fff' },
+          { k: 'held_for_you', l: 'Held for you', c: held > 0 ? '#f59e0b' : '#fff' },
+          { k: 'actions_today', l: 'Actions today', c: '#fff' },
+        ].map(({ k, l, c }) => (
+          <div key={k} style={{ background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: '8px', padding: '16px' }}>
+            <div style={{ color: '#6b7280', fontSize: '12px', marginBottom: '8px' }}>{l}</div>
+            <div style={{ fontSize: '28px', fontWeight: 700, color: c }}>{mm[k]?.value || '—'}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: 'flex', gap: '16px', marginBottom: '16px', fontSize: '12px', color: '#6b7280' }}>
+        {['active', 'needs_you', 'idle'].map(s => (
+          <div key={s} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div style={{ width: '8px', height: '8px', borderRadius: '2px', border: `2px solid ${SC[s]}` }} />
+            {SL[s]}
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '12px', marginBottom: '24px' }}>
+        {agents.map((a: any) => (
+          <div key={a.id} onClick={() => { setSelected(a); setChatOpen(false) }}
+            style={{ background: '#1a1a1a', border: `1px solid ${selected?.id === a.id ? '#3b82f6' : '#2a2a2a'}`, borderRadius: '8px', padding: '16px', cursor: 'pointer' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+              <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#2a2a2a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '14px' }}>
+                {a.name[0]}
+              </div>
+              <div>
+                <div style={{ fontWeight: 600, fontSize: '14px' }}>{a.name}</div>
+                <div style={{ color: '#6b7280', fontSize: '12px' }}>{a.role}</div>
+              </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: SC[a.status] }}>
+              <div style={{ width: '8px', height: '8px', borderRadius: '2px', border: `2px solid ${SC[a.status]}` }} />
+              {SL[a.status]}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {selected && !chatOpen && (
+        <div style={{ background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: '8px', padding: '20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+              <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#2a2a2a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>{selected.name[0]}</div>
+              <div>
+                <div style={{ fontWeight: 600 }}>{selected.name} · {selected.role}</div>
+                <div style={{ color: '#6b7280', fontSize: '12px' }}>Reports to Boris</div>
+              </div>
+            </div>
+            <div style={{ color: SC[selected.status], fontSize: '12px' }}>{SL[selected.status]}</div>
+          </div>
+          {selected.current_task && (
+            <div style={{ marginBottom: '16px' }}>
+              <div style={{ color: '#6b7280', fontSize: '12px', marginBottom: '4px' }}>Working on</div>
+              <div>{selected.current_task}</div>
+            </div>
+          )}
+          {activity.length > 0 && (
+            <div style={{ marginBottom: '16px' }}>
+              <div style={{ color: '#6b7280', fontSize: '12px', marginBottom: '8px' }}>Recent activity</div>
+              {activity.map((a: any) => (
+                <div key={a.id} style={{ color: '#d1d5db', fontSize: '13px', padding: '6px 0', borderBottom: '1px solid #2a2a2a' }}>{a.description}</div>
+              ))}
+            </div>
+          )}
+          <button onClick={() => setChatOpen(true)}
+            style={{ background: 'transparent', border: '1px solid #3a3a3a', color: '#fff', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontSize: '13px' }}>
+            Open {selected.name} in chat ↗
+          </button>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      )}
+
+      {selected && chatOpen && (
+        <div style={{ background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: '8px', padding: '20px', display: 'flex', flexDirection: 'column', height: '400px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
+            <div style={{ fontWeight: 600 }}>Chat with {selected.name}</div>
+            <button onClick={() => setChatOpen(false)} style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', fontSize: '18px' }}>×</button>
+          </div>
+          <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '12px' }}>
+            {messages.map((m, i) => (
+              <div key={i} style={{ alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start', background: m.role === 'user' ? '#3b82f6' : '#2a2a2a', padding: '10px 14px', borderRadius: '12px', maxWidth: '80%', fontSize: '13px' }}>
+                {m.content}
+              </div>
+            ))}
+            {sending && <div style={{ color: '#6b7280', fontSize: '13px' }}>{selected.name} is typing...</div>}
+          </div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && sendMessage()}
+              placeholder={`Message ${selected.name}...`}
+              style={{ flex: 1, background: '#2a2a2a', border: '1px solid #3a3a3a', color: '#fff', padding: '10px 14px', borderRadius: '6px', fontSize: '13px', outline: 'none' }} />
+            <button onClick={sendMessage} disabled={sending}
+              style={{ background: '#3b82f6', border: 'none', color: '#fff', padding: '10px 20px', borderRadius: '6px', cursor: 'pointer', fontSize: '13px' }}>
+              Send
+            </button>
+          </div>
         </div>
-      </main>
+      )}
     </div>
-  );
+  )
 }
