@@ -188,7 +188,7 @@ export default function Dashboard() {
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
             <div style={{ width: 80, height: 80, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <img src="/lh-logo-dark.png" alt="Lion-Heart" style={{ width: 80, height: 80, objectFit: 'contain', filter: 'drop-shadow(0 0 12px rgba(139,92,246,0.6))' }} />
+              <img src="/lh-logo-dark.png" alt="Lion-Heart" style={{ width: 80, height: 80, objectFit: 'contain', filter: 'brightness(0) invert(1) drop-shadow(0 0 12px rgba(139,92,246,0.7))' }} />
             </div>
             <div>
               <div style={{ fontWeight: 700, fontSize: 16, letterSpacing: '-0.02em', lineHeight: 1.2 }}>Lion-Heart</div>
@@ -204,13 +204,13 @@ export default function Dashboard() {
             const d = time.toLocaleDateString('en-US', { timeZone: tz, weekday: 'short', month: 'short', day: 'numeric' })
             return (
               <div key={tz} style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: 11, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4, fontWeight: 600 }}>
-                  {flag} {label}
+                <div style={{ fontSize: 16, marginBottom: 6, lineHeight: 1 }}>
+                  {flag} <span style={{ color: '#94a3b8', fontSize: 13, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</span>
                 </div>
-                <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums', color: '#e2e8f0', lineHeight: 1 }}>
+                <div style={{ fontSize: 36, fontWeight: 700, letterSpacing: '-0.04em', fontVariantNumeric: 'tabular-nums', color: '#f1f5f9', lineHeight: 1 }}>
                   {t}
                 </div>
-                <div style={{ fontSize: 11, color: '#475569', marginTop: 4 }}>{d}</div>
+                <div style={{ fontSize: 12, color: '#475569', marginTop: 6 }}>{d}</div>
               </div>
             )
           })}
