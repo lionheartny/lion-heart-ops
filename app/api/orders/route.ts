@@ -64,20 +64,22 @@ export async function GET(req: NextRequest) {
     const open       = searchParams.get('open')
     const express    = searchParams.get('express')
     const unalloc    = searchParams.get('unallocated')
+    const onhold     = searchParams.get('onhold')
 
     // Build Zenventory query params
     const params: Record<string, string> = {}
     if (from) params['from'] = from
     if (to)   params['to']   = to
-    if (open === 'true' || express === 'true' || unalloc === 'true') params['open'] = 'true'
+    if (open === 'true' || express === 'true' || unalloc === 'true' || onhold === 'true') params['open'] = 'true'
 
     let orders: any[] = []
 
-    // Express or unallocated: fetch open orders and filter client-side
-    if (express === 'true' || unalloc === 'true') {
+    // Express, onhold or unallocated: fetch open orders and filter client-side
+    if (express === 'true' || unalloc === 'true' || onhold === 'true') {
       const all = await fetchOrders(params)
       if (express === 'true')  orders = all.filter((o: any) => o.isExpress)
       if (unalloc === 'true')  orders = all.filter((o: any) => o.isUnallocated)
+      if (onhold === 'true')   orders = all.filter((o: any) => o.status === 'on hold')
       return NextResponse.json({ orders, count: orders.length })
     }
 

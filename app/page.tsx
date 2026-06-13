@@ -77,7 +77,7 @@ export default function Dashboard() {
   const [searching, setSearching] = useState(false)
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null)
   const [hasSearched, setHasSearched] = useState(false)
-  const [expressOrders, setExpressOrders] = useState<any[]>([])
+  const [onHoldOrders, setOnHoldOrders] = useState<any[]>([])
   const [unallocOrders, setUnallocOrders] = useState<any[]>([])
   const [watchLoading, setWatchLoading] = useState(true)
   // Command Orb
@@ -110,12 +110,12 @@ export default function Dashboard() {
     supabase.from('metrics').select('*').then(({ data }) => { if (data) setMetrics(data) })
     fetchQueue()
     fetch('/api/metrics').catch(() => {})
-    // Auto-load express + unallocated orders
+    // Auto-load on-hold + unallocated orders
     Promise.all([
-      fetch('/api/orders?express=true').then(r => r.json()),
+      fetch('/api/orders?onhold=true').then(r => r.json()),
       fetch('/api/orders?unallocated=true').then(r => r.json()),
-    ]).then(([exp, unalloc]) => {
-      setExpressOrders(exp.orders ?? [])
+    ]).then(([held, unalloc]) => {
+      setOnHoldOrders(held.orders ?? [])
       setUnallocOrders(unalloc.orders ?? [])
       setWatchLoading(false)
     }).catch(() => setWatchLoading(false))
@@ -201,7 +201,7 @@ export default function Dashboard() {
     setHasSearched(true)
     const params = new URLSearchParams()
     if (q.trim()) params.set('q', q.trim())
-    else params.set('open', 'true')
+    else { setSearching(false); return }
     const res = await fetch(`/api/orders?${params}`)
     const data = await res.json()
     setSearchResults(data.orders ?? [])
@@ -211,7 +211,6 @@ export default function Dashboard() {
   const mm = Object.fromEntries(metrics.map((m: any) => [m.key, m]))
   const held = queue.length
   const metricTiles = [
-    { k: 'open_tickets',  l: 'Open orders',   icon: '📦', accent: '#3b82f6' },
     { k: 'on_hold',       l: 'On hold',        icon: '⏸️',  accent: '#f59e0b' },
     { k: 'shipped_today', l: 'Shipped today',  icon: '🚚', accent: '#10b981' },
     { k: 'held_for_you',  l: 'Awaiting you',   icon: '⏳', accent: held > 0 ? '#ef4444' : '#8b5cf6' },
@@ -357,7 +356,7 @@ export default function Dashboard() {
         </div>
 
         {/* ── METRIC TILES ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 12, marginBottom: 28 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 28 }}>
           {metricTiles.map(({ k, l, icon, accent }) => {
             const val = k === 'held_for_you' ? held : (mm[k]?.value ?? '—')
             return (
@@ -375,26 +374,26 @@ export default function Dashboard() {
         {/* ── WATCH LISTS: EXPRESS + UNALLOCATED ── */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 28 }}>
 
-          {/* Express */}
+          {/* On Hold */}
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-              <span style={{ fontSize: 14 }}>🚨</span>
-              <div style={{ fontSize: 11, color: '#ef4444', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>Express / Overnight</div>
+              <span style={{ fontSize: 14 }}>⏸️</span>
+              <div style={{ fontSize: 11, color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>On Hold</div>
               {!watchLoading && (
-                <div style={{ background: '#ef444418', border: '1px solid #ef444444', color: '#ef4444', fontSize: 11, fontWeight: 700, padding: '1px 7px', borderRadius: 10 }}>{expressOrders.length}</div>
+                <div style={{ background: '#f59e0b18', border: '1px solid #f59e0b44', color: '#f59e0b', fontSize: 11, fontWeight: 700, padding: '1px 7px', borderRadius: 10 }}>{onHoldOrders.length}</div>
               )}
             </div>
             {watchLoading ? (
               <div style={{ color: '#475569', fontSize: 13 }}>Loading…</div>
-            ) : expressOrders.length === 0 ? (
-              <Card style={{ padding: '14px 16px' }}><div style={{ color: '#475569', fontSize: 13 }}>No express orders</div></Card>
+            ) : onHoldOrders.length === 0 ? (
+              <Card style={{ padding: '14px 16px' }}><div style={{ color: '#475569', fontSize: 13 }}>No orders on hold ✓</div></Card>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 360, overflowY: 'auto' }}>
-                {expressOrders.map((o: any) => (
-                  <Card key={o.orderNumber} style={{ padding: '12px 16px', cursor: 'pointer', borderColor: 'rgba(239,68,68,0.2)' }}
+                {onHoldOrders.map((o: any) => (
+                  <Card key={o.orderNumber} style={{ padding: '12px 16px', cursor: 'pointer', borderColor: 'rgba(245,158,11,0.25)' }}
                     onClick={() => { setSearchQ(o.orderNumber); setSearchResults([o]); setHasSearched(true); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
-                      <span style={{ fontWeight: 700, fontSize: 13, color: '#fca5a5' }}>{o.orderNumber}</span>
+                      <span style={{ fontWeight: 700, fontSize: 13, color: '#fcd34d' }}>{o.orderNumber}</span>
                       <span style={{ color: '#64748b', fontSize: 10, fontFamily: 'monospace' }}>{o.shipVia}</span>
                     </div>
                     <div style={{ color: '#94a3b8', fontSize: 12, marginBottom: 3 }}>{o.customer || '—'}{o.company ? ` · ${o.company}` : ''}</div>
