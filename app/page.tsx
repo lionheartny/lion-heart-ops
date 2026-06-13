@@ -191,12 +191,16 @@ export default function Dashboard() {
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
             <div style={{
-              width: 40, height: 40, borderRadius: 10,
-              background: 'linear-gradient(135deg, #8b5cf6, #3b82f6)',
+              width: 44, height: 44, borderRadius: 10,
+              background: '#0a0a0a',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 22, flexShrink: 0,
-              boxShadow: '0 4px 20px rgba(139,92,246,0.4)',
-            }}>🦁</div>
+              flexShrink: 0,
+              boxShadow: '0 4px 20px rgba(139,92,246,0.3)',
+              overflow: 'hidden',
+              border: '1px solid rgba(255,255,255,0.08)',
+            }}>
+              <img src="/lh-logo.png" alt="Lion-Heart" style={{ width: 34, height: 34, objectFit: 'contain' }} />
+            </div>
             <div>
               <div style={{ fontWeight: 700, fontSize: 16, letterSpacing: '-0.02em', lineHeight: 1.2 }}>
                 Lion-Heart

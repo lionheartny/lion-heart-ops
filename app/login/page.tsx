@@ -63,14 +63,16 @@ export default function LoginPage() {
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: 36 }}>
           <div style={{
-            width: 60, height: 60,
-            background: 'linear-gradient(135deg, #8b5cf6, #3b82f6)',
-            borderRadius: 16,
+            width: 72, height: 72,
+            background: '#0a0a0a',
+            borderRadius: 18,
             margin: '0 auto 18px',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 30,
-            boxShadow: '0 8px 30px rgba(139,92,246,0.45)',
-          }}>🦁</div>
+            boxShadow: '0 8px 30px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.08)',
+            overflow: 'hidden',
+          }}>
+            <img src="/lh-logo.png" alt="Lion-Heart" style={{ width: 54, height: 54, objectFit: 'contain' }} />
+          </div>
 
           <div style={{ color: '#f1f5f9', fontSize: 22, fontWeight: 700, letterSpacing: '-0.02em' }}>
             Lion-Heart
