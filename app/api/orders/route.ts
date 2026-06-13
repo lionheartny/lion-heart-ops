@@ -9,23 +9,38 @@ function zenHeaders() {
   return { Authorization: `Basic ${creds}`, 'Content-Type': 'application/json' }
 }
 
+const EXPRESS_KEYWORDS = ['OVERNIGHT', 'EXPRESS', 'PRIORITY', '2_DAY', '2DAY', 'NEXT_DAY', '1_DAY', '1DAY', 'PRIORITY_OVERNIGHT']
+
+function isExpressShip(shipVia: string): boolean {
+  if (!shipVia) return false
+  const up = shipVia.toUpperCase()
+  return EXPRESS_KEYWORDS.some(k => up.includes(k))
+}
+
 function fmtOrder(o: any) {
+  const items = o.items ?? o.orderItems ?? []
+  const unallocatedItems = items.filter((i: any) => (i.allocatedQuantity ?? 0) < (i.quantity ?? i.orderQuantity ?? 0))
   return {
-    id:          o.id,
-    orderNumber: o.orderNumber,
-    customer:    `${o.customer?.name ?? ''} ${o.customer?.surname ?? ''}`.trim(),
-    email:       o.customer?.email ?? '',
-    company:     o.customer?.company ?? '',
-    status:      o.completed ? 'completed' : o.cancelled ? 'cancelled' : o.onHold ? 'on hold' : 'open',
-    orderedDate: o.orderedDate,
-    items:       (o.orderItems ?? []).map((i: any) => ({
-      sku: i.sku, name: i.name, qty: i.quantity,
+    id:               o.id,
+    orderNumber:      o.orderNumber,
+    customer:         `${o.customer?.name ?? ''} ${o.customer?.surname ?? ''}`.trim(),
+    email:            o.customer?.email ?? '',
+    company:          o.customer?.company ?? '',
+    status:           o.completed ? 'completed' : o.cancelled ? 'cancelled' : o.onHold ? 'on hold' : 'open',
+    orderedDate:      o.orderedDate,
+    shipVia:          o.shipVia ?? '',
+    isExpress:        isExpressShip(o.shipVia ?? ''),
+    isUnallocated:    unallocatedItems.length > 0,
+    unallocatedCount: unallocatedItems.length,
+    items:            items.map((i: any) => ({
+      sku: i.sku, name: i.description ?? i.name, qty: i.quantity ?? i.orderQuantity,
+      allocated: i.allocatedQuantity ?? 0,
     })),
-    itemCount:   (o.orderItems ?? []).length,
-    tracking:    (o.shipments ?? []).flatMap((s: any) =>
+    itemCount:        items.length,
+    tracking:         (o.shipments ?? []).flatMap((s: any) =>
       (s.packages ?? []).map((p: any) => ({ carrier: s.carrier, tracking: p.trackingNumber }))
     ),
-    shippingAddress: o.shippingAddress
+    shippingAddress:  o.shippingAddress
       ? `${o.shippingAddress.line1}, ${o.shippingAddress.city}, ${o.shippingAddress.state} ${o.shippingAddress.zip}`
       : '',
   }
@@ -43,18 +58,28 @@ async function fetchOrders(params: Record<string, string>) {
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = req.nextUrl
-    const q    = searchParams.get('q')?.trim() ?? ''
-    const from = searchParams.get('from') ?? ''
-    const to   = searchParams.get('to') ?? ''
-    const open = searchParams.get('open')
+    const q          = searchParams.get('q')?.trim() ?? ''
+    const from       = searchParams.get('from') ?? ''
+    const to         = searchParams.get('to') ?? ''
+    const open       = searchParams.get('open')
+    const express    = searchParams.get('express')
+    const unalloc    = searchParams.get('unallocated')
 
     // Build Zenventory query params
     const params: Record<string, string> = {}
     if (from) params['from'] = from
     if (to)   params['to']   = to
-    if (open === 'true') params['open'] = 'true'
+    if (open === 'true' || express === 'true' || unalloc === 'true') params['open'] = 'true'
 
     let orders: any[] = []
+
+    // Express or unallocated: fetch open orders and filter client-side
+    if (express === 'true' || unalloc === 'true') {
+      const all = await fetchOrders(params)
+      if (express === 'true')  orders = all.filter((o: any) => o.isExpress)
+      if (unalloc === 'true')  orders = all.filter((o: any) => o.isUnallocated)
+      return NextResponse.json({ orders, count: orders.length })
+    }
 
     if (q) {
       // Looks like an order number (e.g. SB1007, LH-42)
