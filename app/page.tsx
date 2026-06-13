@@ -78,6 +78,7 @@ export default function Dashboard() {
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null)
   const [hasSearched, setHasSearched] = useState(false)
   const [onHoldOrders, setOnHoldOrders] = useState<any[]>([])
+  const [expandedWatch, setExpandedWatch] = useState<string|null>(null)
   const [unallocOrders, setUnallocOrders] = useState<any[]>([])
   const [watchLoading, setWatchLoading] = useState(true)
   // Command Orb
@@ -371,72 +372,63 @@ export default function Dashboard() {
           })}
         </div>
 
-        {/* ── WATCH LISTS: EXPRESS + UNALLOCATED ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 28 }}>
-
-          {/* On Hold */}
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-              <span style={{ fontSize: 14 }}>⏸️</span>
-              <div style={{ fontSize: 11, color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>On Hold</div>
-              {!watchLoading && (
-                <div style={{ background: '#f59e0b18', border: '1px solid #f59e0b44', color: '#f59e0b', fontSize: 11, fontWeight: 700, padding: '1px 7px', borderRadius: 10 }}>{onHoldOrders.length}</div>
-              )}
-            </div>
-            {watchLoading ? (
-              <div style={{ color: '#475569', fontSize: 13 }}>Loading…</div>
-            ) : onHoldOrders.length === 0 ? (
-              <Card style={{ padding: '14px 16px' }}><div style={{ color: '#475569', fontSize: 13 }}>No orders on hold ✓</div></Card>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 360, overflowY: 'auto' }}>
-                {onHoldOrders.map((o: any) => (
-                  <Card key={o.orderNumber} style={{ padding: '12px 16px', cursor: 'pointer', borderColor: 'rgba(245,158,11,0.25)' }}
-                    onClick={() => { setSearchQ(o.orderNumber); setSearchResults([o]); setHasSearched(true); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
-                      <span style={{ fontWeight: 700, fontSize: 13, color: '#fcd34d' }}>{o.orderNumber}</span>
-                      <span style={{ color: '#64748b', fontSize: 10, fontFamily: 'monospace' }}>{o.shipVia}</span>
+        {/* ── WATCH TILES ── */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 28 }}>
+          {(['on_hold', 'unalloc'] as const).map((tileKey) => {
+            const isOnHold = tileKey === 'on_hold'
+            const orders   = isOnHold ? onHoldOrders : unallocOrders
+            const label    = isOnHold ? 'On Hold' : 'Unallocated'
+            const icon     = isOnHold ? '⏸️' : '⚠️'
+            const expanded = expandedWatch === tileKey
+            const count    = watchLoading ? null : orders.length
+            const accent   = count && count > 0 ? '#f59e0b' : '#10b981'
+            return (
+              <div key={tileKey}>
+                <Card onClick={() => setExpandedWatch(expanded ? null : tileKey)}
+                  style={{ padding: '20px 22px', cursor: 'pointer', userSelect: 'none',
+                    borderColor: expanded ? 'rgba(245,158,11,0.38)' : undefined,
+                    background: expanded ? 'rgba(245,158,11,0.04)' : undefined,
+                    transition: 'border-color 0.15s, background 0.15s',
+                  }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ width: 30, height: 30, borderRadius: 8, background: '#f59e0b18', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15 }}>{icon}</div>
+                      <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600 }}>{label}</div>
                     </div>
-                    <div style={{ color: '#94a3b8', fontSize: 12, marginBottom: 3 }}>{o.customer || '—'}{o.company ? ` · ${o.company}` : ''}</div>
-                    <div style={{ color: '#475569', fontSize: 11 }}>{o.itemCount} item{o.itemCount !== 1 ? 's' : ''} · {o.orderedDate ? new Date(o.orderedDate).toLocaleDateString() : '—'}</div>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Unallocated */}
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-              <span style={{ fontSize: 14 }}>⚠️</span>
-              <div style={{ fontSize: 11, color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>Unallocated</div>
-              {!watchLoading && (
-                <div style={{ background: '#f59e0b18', border: '1px solid #f59e0b44', color: '#f59e0b', fontSize: 11, fontWeight: 700, padding: '1px 7px', borderRadius: 10 }}>{unallocOrders.length}</div>
-              )}
-            </div>
-            {watchLoading ? (
-              <div style={{ color: '#475569', fontSize: 13 }}>Loading…</div>
-            ) : unallocOrders.length === 0 ? (
-              <Card style={{ padding: '14px 16px' }}><div style={{ color: '#475569', fontSize: 13 }}>All orders allocated ✓</div></Card>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 360, overflowY: 'auto' }}>
-                {unallocOrders.map((o: any) => (
-                  <Card key={o.orderNumber} style={{ padding: '12px 16px', cursor: 'pointer', borderColor: 'rgba(245,158,11,0.2)' }}
-                    onClick={() => { setSearchQ(o.orderNumber); setSearchResults([o]); setHasSearched(true); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
-                      <span style={{ fontWeight: 700, fontSize: 13, color: '#fcd34d' }}>{o.orderNumber}</span>
-                      <span style={{ background: '#f59e0b18', color: '#f59e0b', fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 4 }}>{o.unallocatedCount} unalloc</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <div style={{ fontSize: 32, fontWeight: 800, color: accent, lineHeight: 1, letterSpacing: '-0.03em' }}>{count ?? '—'}</div>
+                      <span style={{ color: '#475569', fontSize: 12, transition: 'transform 0.2s', display: 'inline-block', transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)' }}>▼</span>
                     </div>
-                    <div style={{ color: '#94a3b8', fontSize: 12, marginBottom: 3 }}>{o.customer || '—'}{o.company ? ` · ${o.company}` : ''}</div>
-                    <div style={{ color: '#475569', fontSize: 11 }}>{o.itemCount} item{o.itemCount !== 1 ? 's' : ''} · {o.orderedDate ? new Date(o.orderedDate).toLocaleDateString() : '—'}</div>
-                  </Card>
-                ))}
+                  </div>
+                </Card>
+                {expanded && (
+                  <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 380, overflowY: 'auto' }}>
+                    {orders.length === 0 ? (
+                      <Card style={{ padding: '14px 16px' }}>
+                        <div style={{ color: '#475569', fontSize: 13 }}>{isOnHold ? 'No orders on hold ✓' : 'All orders allocated ✓'}</div>
+                      </Card>
+                    ) : orders.map((o: any) => (
+                      <Card key={o.orderNumber} style={{ padding: '12px 16px', cursor: 'pointer', borderColor: 'rgba(245,158,11,0.25)' }}
+                        onClick={e => { e.stopPropagation(); setSearchQ(o.orderNumber); setSearchResults([o]); setHasSearched(true); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+                          <span style={{ fontWeight: 700, fontSize: 13, color: '#fcd34d' }}>{o.orderNumber}</span>
+                          {isOnHold
+                            ? <span style={{ color: '#64748b', fontSize: 10, fontFamily: 'monospace' }}>{o.shipVia}</span>
+                            : <span style={{ background: '#f59e0b18', color: '#f59e0b', fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 4 }}>{o.unallocatedCount} unalloc</span>
+                          }
+                        </div>
+                        <div style={{ color: '#94a3b8', fontSize: 12, marginBottom: 3 }}>{o.customer || '—'}{o.company ? ` · ${o.company}` : ''}</div>
+                        <div style={{ color: '#475569', fontSize: 11 }}>{o.itemCount} item{o.itemCount !== 1 ? 's' : ''} · {o.orderedDate ? new Date(o.orderedDate).toLocaleDateString() : '—'}</div>
+                      </Card>
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-
+            )
+          })}
         </div>
 
-        {/* ── APPROVAL QUEUE ── */}
+                {/* ── APPROVAL QUEUE ── */}
         {queue.length > 0 && (
           <div style={{ marginBottom: 28 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
