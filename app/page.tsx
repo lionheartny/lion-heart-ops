@@ -600,20 +600,46 @@ export default function Dashboard() {
       {/* ── COMMAND ORB HUD ── */}
       <style>{`
         @keyframes orbCore {
-          0%, 100% {
+          0% {
             box-shadow:
               0 0 0 0 rgba(59,130,246,0),
-              0 0 40px rgba(96,165,250,0.7),
-              0 0 90px rgba(59,130,246,0.4),
-              0 0 160px rgba(29,78,216,0.2);
+              0 0 50px rgba(147,197,253,1),
+              0 0 110px rgba(96,165,250,0.7),
+              0 0 200px rgba(37,99,235,0.45),
+              0 0 320px rgba(29,78,216,0.2);
           }
-          50% {
+          33% {
             box-shadow:
               0 0 0 0 rgba(59,130,246,0),
-              0 0 60px rgba(147,197,253,0.9),
-              0 0 130px rgba(96,165,250,0.55),
-              0 0 220px rgba(37,99,235,0.3);
+              0 0 30px rgba(96,165,250,0.5),
+              0 0 70px rgba(59,130,246,0.35),
+              0 0 130px rgba(29,78,216,0.2),
+              0 0 220px rgba(17,24,39,0);
           }
+          66% {
+            box-shadow:
+              0 0 0 0 rgba(59,130,246,0),
+              0 0 70px rgba(147,197,253,1),
+              0 0 140px rgba(96,165,250,0.8),
+              0 0 240px rgba(37,99,235,0.5),
+              0 0 380px rgba(29,78,216,0.25);
+          }
+          100% {
+            box-shadow:
+              0 0 0 0 rgba(59,130,246,0),
+              0 0 50px rgba(147,197,253,1),
+              0 0 110px rgba(96,165,250,0.7),
+              0 0 200px rgba(37,99,235,0.45),
+              0 0 320px rgba(29,78,216,0.2);
+          }
+        }
+        @keyframes orbRingSpin {
+          from { transform: rotate(0deg); }
+          to   { transform: rotate(360deg); }
+        }
+        @keyframes orbRingSpinR {
+          from { transform: rotate(0deg); }
+          to   { transform: rotate(-360deg); }
         }
         @keyframes orbThink {
           0%, 100% { box-shadow: 0 0 0 0 rgba(245,158,11,0.9), 0 0 30px rgba(245,158,11,0.6); }
@@ -799,7 +825,7 @@ export default function Dashboard() {
             }}>
               <div style={{ padding: '14px 18px 13px', borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'linear-gradient(135deg,rgba(37,99,235,0.15),rgba(29,78,216,0.06))', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-                  <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'radial-gradient(circle,#60a5fa,#1d4ed8)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>🦁</div>
+                  <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(30,64,175,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', border: '1px solid rgba(96,165,250,0.4)' }}><img src="/lh-logo.svg" style={{ width: 20, height: 20, objectFit: 'contain', filter: 'brightness(0) invert(1)' }} /></div>
                   <div>
                     <div style={{ fontWeight: 800, fontSize: 13, color: '#f1f5f9' }}>Lion-Heart Command</div>
                     <div style={{ fontSize: 10, color: '#3b82f6', letterSpacing: '0.08em', textTransform: 'uppercase', marginTop: 1 }}>9 agents · always on</div>
@@ -853,6 +879,22 @@ export default function Dashboard() {
             </div>
           )}
 
+          {/* Spinning decorative ring 1 */}
+          <div style={{
+            position: 'absolute', top: -22, left: -22, right: -22, bottom: -22,
+            borderRadius: '50%',
+            border: '1.5px dashed rgba(96,165,250,0.55)',
+            animation: 'orbRingSpin 8s linear infinite',
+            pointerEvents: 'none',
+          }} />
+          {/* Spinning decorative ring 2 — counter-rotate, tighter dash */}
+          <div style={{
+            position: 'absolute', top: -30, left: -30, right: -30, bottom: -30,
+            borderRadius: '50%',
+            border: '1px dashed rgba(59,130,246,0.35)',
+            animation: 'orbRingSpinR 14s linear infinite',
+            pointerEvents: 'none',
+          }} />
           {/* Outer glow ring */}
           <div style={{
             position: 'absolute', top: -14, left: -14, right: -14, bottom: -14, borderRadius: '50%',
@@ -870,7 +912,7 @@ export default function Dashboard() {
                 : orbState === 'responding'
                 ? 'radial-gradient(circle at 38% 33%, #ecfdf5 0%, #6ee7b7 10%, #10b981 30%, #065f46 58%, #022c22 84%)'
                 : 'radial-gradient(circle at 38% 33%, #ffffff 0%, #dbeafe 10%, #93c5fd 22%, #3b82f6 42%, #1e40af 65%, #0f2057 85%)',
-              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4,
+              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 0,
               animation: orbState === 'thinking' ? 'orbThink 0.9s ease-in-out infinite'
                 : orbState === 'responding' ? 'orbRespond 1.1s ease-in-out infinite'
                 : 'orbCore 3s ease-in-out infinite',
@@ -880,8 +922,8 @@ export default function Dashboard() {
             {/* Specular highlight */}
             <div style={{ position: 'absolute', top: 10, left: 18, width: 40, height: 40, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,255,255,0.8) 0%, transparent 70%)', pointerEvents: 'none' }} />
             <div style={{ position: 'absolute', top: 32, left: 8, width: 18, height: 18, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,255,255,0.3) 0%, transparent 70%)', pointerEvents: 'none' }} />
-            <span style={{ fontSize: 36, lineHeight: 1, filter: 'drop-shadow(0 2px 10px rgba(0,0,0,0.8))', position: 'relative' }}>🦁</span>
-            <span style={{ fontSize: 8, fontWeight: 900, color: 'rgba(255,255,255,0.9)', letterSpacing: '0.2em', textTransform: 'uppercase', position: 'relative', textShadow: '0 1px 6px rgba(0,0,0,0.7)' }}>Command</span>
+            <img src="/lh-logo.svg" style={{ width: 64, height: 64, objectFit: 'contain', filter: 'brightness(0) invert(1) drop-shadow(0 2px 12px rgba(0,0,0,0.9))', position: 'relative', flexShrink: 0 }} />
+            
           </button>
         </div>
       </div>
