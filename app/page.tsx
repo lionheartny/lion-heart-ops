@@ -187,13 +187,8 @@ export default function Dashboard() {
           padding: '20px 0 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', marginBottom: 28,
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            <div style={{
-              width: 64, height: 64, borderRadius: 12, background: '#000',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-              boxShadow: '0 4px 20px rgba(139,92,246,0.25)', overflow: 'hidden',
-              border: '1px solid rgba(255,255,255,0.1)',
-            }}>
-              <img src="/lh-logo.png" alt="Lion-Heart" style={{ width: 52, height: 52, objectFit: 'contain' }} />
+            <div style={{ width: 80, height: 80, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <img src="/lh-logo-dark.png" alt="Lion-Heart" style={{ width: 80, height: 80, objectFit: 'contain', filter: 'drop-shadow(0 0 12px rgba(139,92,246,0.6))' }} />
             </div>
             <div>
               <div style={{ fontWeight: 700, fontSize: 16, letterSpacing: '-0.02em', lineHeight: 1.2 }}>Lion-Heart</div>
