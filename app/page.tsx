@@ -560,7 +560,7 @@ export default function Dashboard() {
                       </Card>
                     ) : orders.map((o: any) => (
                       <Card key={o.orderNumber} style={{ padding: '12px 16px', cursor: 'pointer', borderColor: 'rgba(245,158,11,0.25)' }}
-                        onClick={e => { e.stopPropagation(); setSearchQ(o.orderNumber); setSearchResults([o]); setHasSearched(true); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>
+                        onClick={(e: React.MouseEvent) => { e.stopPropagation() }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
                           <span style={{ fontWeight: 700, fontSize: 13, color: '#fcd34d' }}>{o.orderNumber}</span>
                           {isOnHold
