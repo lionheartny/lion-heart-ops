@@ -19,6 +19,11 @@ export default function Dashboard() {
   const [sending, setSending] = useState(false)
   const [acting, setActing] = useState<string | null>(null)
   const [time, setTime] = useState(new Date())
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [searchQ, setSearchQ] = useState('')
+  const [searchResults, setSearchResults] = useState<any[]>([])
+  const [searching, setSearching] = useState(false)
+  const [expandedOrder, setExpandedOrder] = useState<string | null>(null)
 
   useEffect(() => {
     const t = setInterval(() => setTime(new Date()), 1000)
@@ -89,15 +94,112 @@ export default function Dashboard() {
     setActing(null)
   }
 
+  const searchOrders = async (q: string) => {
+    setSearching(true)
+    setSearchResults([])
+    const params = new URLSearchParams()
+    if (q.trim()) params.set('q', q.trim())
+    else params.set('open', 'true')
+    const res = await fetch(`/api/orders?${params}`)
+    const data = await res.json()
+    setSearchResults(data.orders ?? [])
+    setSearching(false)
+  }
+
   const mm = Object.fromEntries(metrics.map((m: any) => [m.key, m]))
   const held = queue.length
 
   return (
     <div style={{ background: '#0a0a0a', minHeight: '100vh', color: '#fff', fontFamily: 'system-ui,sans-serif', padding: '20px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <div style={{ fontSize: '20px', fontWeight: 600 }}>Lion-Heart agent operations</div>
-        <div style={{ color: '#6b7280', fontSize: '14px' }}>{time.toLocaleTimeString()}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <button onClick={() => { setSearchOpen(!searchOpen); if (!searchOpen) { setSearchQ(''); setSearchResults([]) } }}
+            style={{ background: searchOpen ? '#3b82f622' : 'transparent', border: '1px solid #3a3a3a', color: searchOpen ? '#3b82f6' : '#9ca3af', padding: '6px 14px', borderRadius: '6px', cursor: 'pointer', fontSize: '13px' }}>
+            🔍 Search orders
+          </button>
+          <div style={{ color: '#6b7280', fontSize: '14px' }}>{time.toLocaleTimeString()}</div>
+        </div>
       </div>
+
+      {searchOpen && (
+        <div style={{ background: '#1a1a1a', border: '1px solid #2a2a2a', borderRadius: '8px', padding: '20px', marginBottom: '24px' }}>
+          <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+            <input
+              value={searchQ}
+              onChange={e => setSearchQ(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && searchOrders(searchQ)}
+              placeholder="Order # (SB1007) or customer name / email…"
+              autoFocus
+              style={{ flex: 1, background: '#2a2a2a', border: '1px solid #3a3a3a', color: '#fff', padding: '10px 14px', borderRadius: '6px', fontSize: '13px', outline: 'none' }}
+            />
+            <button onClick={() => searchOrders(searchQ)} disabled={searching}
+              style={{ background: '#3b82f6', border: 'none', color: '#fff', padding: '10px 20px', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', minWidth: '80px' }}>
+              {searching ? '…' : 'Search'}
+            </button>
+            <button onClick={() => searchOrders('')} disabled={searching}
+              style={{ background: 'transparent', border: '1px solid #3a3a3a', color: '#9ca3af', padding: '10px 14px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px' }}>
+              Open orders
+            </button>
+          </div>
+          {searchResults.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '420px', overflowY: 'auto' }}>
+              <div style={{ color: '#6b7280', fontSize: '12px', marginBottom: '4px' }}>{searchResults.length} result{searchResults.length !== 1 ? 's' : ''}</div>
+              {searchResults.map((o: any) => {
+                const expanded = expandedOrder === o.orderNumber
+                const statusColor = o.status === 'completed' ? '#22c55e' : o.status === 'cancelled' ? '#ef4444' : o.status === 'on hold' ? '#f59e0b' : '#3b82f6'
+                return (
+                  <div key={o.orderNumber} onClick={() => setExpandedOrder(expanded ? null : o.orderNumber)}
+                    style={{ background: '#2a2a2a', border: '1px solid #3a3a3a', borderRadius: '6px', padding: '12px 16px', cursor: 'pointer' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                        <span style={{ fontWeight: 700, fontSize: '14px', color: '#fff' }}>{o.orderNumber}</span>
+                        <span style={{ color: '#9ca3af', fontSize: '13px' }}>{o.customer}{o.company ? ` · ${o.company}` : ''}</span>
+                        {o.itemCount > 0 && <span style={{ color: '#6b7280', fontSize: '12px' }}>{o.itemCount} item{o.itemCount !== 1 ? 's' : ''}</span>}
+                      </div>
+                      <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                        <span style={{ background: statusColor + '22', color: statusColor, fontSize: '11px', fontWeight: 600, padding: '2px 8px', borderRadius: '4px', textTransform: 'uppercase' }}>{o.status}</span>
+                        <span style={{ color: '#6b7280', fontSize: '12px' }}>{o.orderedDate ? new Date(o.orderedDate).toLocaleDateString() : ''}</span>
+                        <span style={{ color: '#6b7280', fontSize: '12px' }}>{expanded ? '▲' : '▼'}</span>
+                      </div>
+                    </div>
+                    {expanded && (
+                      <div style={{ marginTop: '12px', borderTop: '1px solid #3a3a3a', paddingTop: '12px', fontSize: '13px' }}>
+                        {o.email && <div style={{ color: '#9ca3af', marginBottom: '6px' }}>📧 {o.email}</div>}
+                        {o.shippingAddress && <div style={{ color: '#9ca3af', marginBottom: '10px' }}>📍 {o.shippingAddress}</div>}
+                        {o.items.length > 0 && (
+                          <div style={{ marginBottom: '10px' }}>
+                            <div style={{ color: '#6b7280', fontSize: '11px', marginBottom: '6px', textTransform: 'uppercase' }}>Items</div>
+                            {o.items.map((item: any, i: number) => (
+                              <div key={i} style={{ color: '#d1d5db', padding: '3px 0' }}>
+                                {item.qty}× {item.name || item.sku}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {o.tracking.length > 0 && (
+                          <div>
+                            <div style={{ color: '#6b7280', fontSize: '11px', marginBottom: '6px', textTransform: 'uppercase' }}>Tracking</div>
+                            {o.tracking.map((t: any, i: number) => (
+                              <div key={i} style={{ color: '#22c55e', fontFamily: 'monospace', fontSize: '13px' }}>
+                                {t.carrier}: {t.tracking}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {o.tracking.length === 0 && <div style={{ color: '#6b7280', fontSize: '12px' }}>No tracking yet</div>}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+          {!searching && searchResults.length === 0 && searchQ && (
+            <div style={{ color: '#6b7280', fontSize: '13px', textAlign: 'center', padding: '20px 0' }}>No orders found for "{searchQ}"</div>
+          )}
+        </div>
+      )}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '12px', marginBottom: '24px' }}>
         {[
