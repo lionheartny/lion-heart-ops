@@ -98,13 +98,17 @@ export default function Dashboard() {
   useEffect(() => {
     const update = () => {
       if (clocksRef.current) {
-        setOrbTop(clocksRef.current.getBoundingClientRect().bottom + 10)
+        // Use offsetTop + offsetHeight for position relative to page (not viewport), stable on scroll
+        const el = clocksRef.current
+        let top = 0; let cur: HTMLElement | null = el
+        while (cur) { top += cur.offsetTop; cur = cur.offsetParent as HTMLElement | null }
+        setOrbTop(top + el.offsetHeight + 10)
       }
     }
     update()
+    setTimeout(update, 100)
     window.addEventListener('resize', update)
-    window.addEventListener('scroll', update)
-    return () => { window.removeEventListener('resize', update); window.removeEventListener('scroll', update) }
+    return () => window.removeEventListener('resize', update)
   }, [])
 
   // Auto-refresh metrics every 5 min
@@ -637,7 +641,7 @@ export default function Dashboard() {
       `}</style>
 
       {/* Full-width HUD fixed at bottom */}
-      <div style={{ position: 'fixed', top: orbTop, left: '50%', transform: 'translateX(-50%)', zIndex: 50, width: 980, height: 300, pointerEvents: 'none' }}>
+      <div style={{ position: 'fixed', top: orbTop, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, width: 980, height: 300, pointerEvents: 'none' }}>
 
         {/* SVG HUD LAYER */}
         <svg width={980} height={300} viewBox="0 0 980 300"
