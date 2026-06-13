@@ -600,99 +600,120 @@ export default function Dashboard() {
       {/* ── COMMAND ORB ── */}
       <style>{`
         @keyframes orbPulse {
-          0%, 100% { box-shadow: 0 0 0 0 rgba(139,92,246,0.7), 0 0 20px rgba(139,92,246,0.4); }
-          50%       { box-shadow: 0 0 0 14px rgba(139,92,246,0), 0 0 32px rgba(139,92,246,0.2); }
+          0%, 100% { box-shadow: 0 0 0 0 rgba(59,130,246,0.8), 0 0 30px rgba(59,130,246,0.5), 0 0 60px rgba(37,99,235,0.25); }
+          50%       { box-shadow: 0 0 0 22px rgba(59,130,246,0), 0 0 50px rgba(59,130,246,0.3), 0 0 90px rgba(37,99,235,0.15); }
         }
         @keyframes orbThink {
-          0%, 100% { box-shadow: 0 0 0 0 rgba(245,158,11,0.8), 0 0 24px rgba(245,158,11,0.5); }
-          50%       { box-shadow: 0 0 0 18px rgba(245,158,11,0), 0 0 40px rgba(245,158,11,0.25); }
+          0%, 100% { box-shadow: 0 0 0 0 rgba(245,158,11,0.9), 0 0 30px rgba(245,158,11,0.6); }
+          50%       { box-shadow: 0 0 0 24px rgba(245,158,11,0), 0 0 60px rgba(245,158,11,0.3); }
         }
         @keyframes orbRespond {
-          0%, 100% { box-shadow: 0 0 0 0 rgba(16,185,129,0.8), 0 0 20px rgba(16,185,129,0.5); }
-          50%       { box-shadow: 0 0 0 14px rgba(16,185,129,0), 0 0 32px rgba(16,185,129,0.25); }
+          0%, 100% { box-shadow: 0 0 0 0 rgba(16,185,129,0.9), 0 0 30px rgba(16,185,129,0.6); }
+          50%       { box-shadow: 0 0 0 22px rgba(16,185,129,0), 0 0 50px rgba(16,185,129,0.3); }
         }
         @keyframes cmdSlideUp {
-          from { opacity: 0; transform: translateY(16px) scale(0.97); }
-          to   { opacity: 1; transform: translateY(0) scale(1); }
+          from { opacity: 0; transform: translateY(20px) translateX(-50%) scale(0.96); }
+          to   { opacity: 1; transform: translateY(0)  translateX(-50%) scale(1); }
         }
         @keyframes orbDot {
           0%, 80%, 100% { opacity: 0.2; transform: scale(0.7); }
           40%            { opacity: 1;   transform: scale(1); }
         }
+        @keyframes spiderGlow {
+          0%   { stroke-dashoffset: 0;   opacity: 0;    }
+          15%  { opacity: 0.85; }
+          60%  { stroke-dashoffset: -48; opacity: 0.5;  }
+          100% { stroke-dashoffset: -96; opacity: 0;    }
+        }
+        @keyframes orbSpin {
+          from { transform: rotate(0deg); }
+          to   { transform: rotate(360deg); }
+        }
       `}</style>
 
-      {/* Orb button */}
-      <div style={{ position: 'fixed', bottom: 28, right: 28, zIndex: 1000 }}>
+      {/* Orb container — bottom center */}
+      <div style={{ position: 'fixed', bottom: 32, left: '50%', transform: 'translateX(-50%)', zIndex: 1000 }}>
 
-        {/* Command Panel */}
+        {/* Command Panel — slides up above orb, centered */}
         {orbOpen && (
           <div style={{
-            position: 'absolute', bottom: 88, right: 0,
-            width: 360, background: 'rgba(10,10,20,0.95)',
-            border: '1px solid rgba(139,92,246,0.35)',
-            borderRadius: 16, overflow: 'hidden',
-            boxShadow: '0 24px 60px rgba(0,0,0,0.7), 0 0 0 1px rgba(139,92,246,0.15)',
-            animation: 'cmdSlideUp 0.2s ease',
+            position: 'absolute', bottom: 148, left: '50%',
+            transform: 'translateX(-50%)',
+            width: 420, background: 'rgba(6,8,20,0.97)',
+            border: '1px solid rgba(59,130,246,0.4)',
+            borderRadius: 18, overflow: 'hidden',
+            boxShadow: '0 32px 80px rgba(0,0,0,0.8), 0 0 0 1px rgba(59,130,246,0.12), 0 0 60px rgba(37,99,235,0.12)',
+            animation: 'cmdSlideUp 0.22s ease',
           }}>
             {/* Panel header */}
             <div style={{
-              padding: '14px 16px 12px',
+              padding: '14px 18px 13px',
               borderBottom: '1px solid rgba(255,255,255,0.06)',
-              background: 'rgba(139,92,246,0.08)',
+              background: 'linear-gradient(135deg, rgba(37,99,235,0.12), rgba(29,78,216,0.06))',
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{ fontSize: 14 }}>🦁</div>
-                <div style={{ fontWeight: 700, fontSize: 13, letterSpacing: '-0.01em' }}>Lion-Heart Command</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'radial-gradient(circle, #3b82f6, #1d4ed8)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>🦁</div>
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: 13, letterSpacing: '-0.01em', color: '#f1f5f9' }}>Lion-Heart Command</div>
+                  <div style={{ fontSize: 10, color: '#3b82f6', letterSpacing: '0.08em', textTransform: 'uppercase', marginTop: 1 }}>9 agents · always on</div>
+                </div>
               </div>
               <button onClick={() => setOrbOpen(false)}
-                style={{ background: 'none', border: 'none', color: '#475569', cursor: 'pointer', fontSize: 18, lineHeight: 1, padding: 2 }}>×</button>
+                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#64748b', cursor: 'pointer', fontSize: 16, lineHeight: 1, padding: '4px 8px', borderRadius: 6 }}>×</button>
             </div>
 
             {/* Messages */}
-            <div style={{ maxHeight: 340, overflowY: 'auto', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ maxHeight: 360, overflowY: 'auto', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 11 }}>
               {orbMessages.length === 0 && (
-                <div style={{ color: '#475569', fontSize: 13, textAlign: 'center', padding: '24px 0' }}>
-                  Ask anything — the right agent will answer.<br />
-                  <span style={{ fontSize: 11, marginTop: 6, display: 'block', color: '#334155' }}>Donny · Mark · Boris · Svetlana · Morgan · Tara · Owen · Priya · Nina</span>
+                <div style={{ color: '#475569', fontSize: 13, textAlign: 'center', padding: '28px 0' }}>
+                  <div style={{ fontSize: 28, marginBottom: 10 }}>🦁</div>
+                  Ask anything — the right agent picks up.<br />
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, justifyContent: 'center', marginTop: 12 }}>
+                    {['Donny','Mark','Boris','Svetlana','Morgan','Tara','Owen','Priya','Nina'].map(n => {
+                      const id = n.toLowerCase()
+                      const ac = AGENT_COLORS[id] ?? '#3b82f6'
+                      return <span key={n} style={{ background: ac + '18', color: ac, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, letterSpacing: '0.04em' }}>{n}</span>
+                    })}
+                  </div>
                 </div>
               )}
               {orbMessages.map((m, i) => {
                 if (m.role === 'user') {
                   return (
-                    <div key={i} style={{ alignSelf: 'flex-end', background: 'linear-gradient(135deg,#8b5cf6,#3b82f6)', color: '#fff', padding: '9px 13px', borderRadius: '12px 12px 3px 12px', maxWidth: '82%', fontSize: 13, lineHeight: 1.5 }}>
+                    <div key={i} style={{ alignSelf: 'flex-end', background: 'linear-gradient(135deg,#2563eb,#1d4ed8)', color: '#fff', padding: '10px 14px', borderRadius: '14px 14px 3px 14px', maxWidth: '80%', fontSize: 13, lineHeight: 1.55 }}>
                       {m.content}
                     </div>
                   )
                 }
                 const agentId = m.agent ?? 'donny'
-                const ac = AGENT_COLORS[agentId] ?? '#8b5cf6'
+                const ac = AGENT_COLORS[agentId] ?? '#3b82f6'
                 const agentName = agentId.charAt(0).toUpperCase() + agentId.slice(1)
                 return (
                   <div key={i} style={{ alignSelf: 'flex-start', maxWidth: '88%' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
-                      <div style={{ width: 20, height: 20, borderRadius: '50%', background: ac + '22', border: `1.5px solid ${ac}55`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: ac }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                      <div style={{ width: 22, height: 22, borderRadius: '50%', background: ac + '20', border: `1.5px solid ${ac}60`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: ac }}>
                         {agentName[0]}
                       </div>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: ac, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{agentName}</span>
+                      <span style={{ fontSize: 11, fontWeight: 800, color: ac, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{agentName}</span>
                     </div>
-                    <div style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${ac}25`, padding: '9px 13px', borderRadius: '3px 12px 12px 12px', fontSize: 13, lineHeight: 1.5, color: '#e2e8f0' }}>
+                    <div style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${ac}22`, padding: '10px 14px', borderRadius: '3px 14px 14px 14px', fontSize: 13, lineHeight: 1.55, color: '#e2e8f0' }}>
                       {m.content}
                     </div>
                   </div>
                 )
               })}
               {orbSending && (
-                <div style={{ alignSelf: 'flex-start', display: 'flex', gap: 5, padding: '10px 14px', background: 'rgba(255,255,255,0.04)', borderRadius: '3px 12px 12px 12px', border: '1px solid rgba(255,255,255,0.07)' }}>
-                  {[0, 150, 300].map(d => (
-                    <span key={d} style={{ width: 6, height: 6, borderRadius: '50%', background: '#8b5cf6', display: 'inline-block', animation: `orbDot 1.2s ${d}ms infinite` }} />
+                <div style={{ alignSelf: 'flex-start', display: 'flex', gap: 5, padding: '11px 16px', background: 'rgba(59,130,246,0.06)', borderRadius: '3px 14px 14px 14px', border: '1px solid rgba(59,130,246,0.15)' }}>
+                  {[0, 160, 320].map(d => (
+                    <span key={d} style={{ width: 7, height: 7, borderRadius: '50%', background: '#3b82f6', display: 'inline-block', animation: `orbDot 1.3s ${d}ms infinite` }} />
                   ))}
                 </div>
               )}
             </div>
 
             {/* Input */}
-            <div style={{ padding: '10px 12px', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', gap: 8 }}>
+            <div style={{ padding: '11px 14px', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', gap: 8 }}>
               <input
                 autoFocus
                 value={orbInput}
@@ -701,15 +722,16 @@ export default function Dashboard() {
                 placeholder="Ask the team anything…"
                 style={{
                   flex: 1, background: 'rgba(255,255,255,0.04)',
-                  border: '1px solid rgba(255,255,255,0.1)', color: '#f1f5f9',
-                  padding: '9px 13px', borderRadius: 9, fontSize: 13, outline: 'none',
+                  border: '1px solid rgba(59,130,246,0.25)', color: '#f1f5f9',
+                  padding: '10px 14px', borderRadius: 10, fontSize: 13, outline: 'none',
                 }}
               />
               <button onClick={sendOrbMessage} disabled={orbSending}
                 style={{
-                  background: 'linear-gradient(135deg,#8b5cf6,#3b82f6)',
-                  border: 'none', color: '#fff', padding: '9px 14px',
-                  borderRadius: 9, cursor: 'pointer', fontSize: 13, fontWeight: 700,
+                  background: 'linear-gradient(135deg,#3b82f6,#1d4ed8)',
+                  border: 'none', color: '#fff', padding: '10px 16px',
+                  borderRadius: 10, cursor: 'pointer', fontSize: 15, fontWeight: 800,
+                  boxShadow: '0 4px 14px rgba(37,99,235,0.5)',
                   opacity: orbSending ? 0.6 : 1,
                 }}>
                 ↑
@@ -718,27 +740,98 @@ export default function Dashboard() {
           </div>
         )}
 
+        {/* Spider SVG layer */}
+        <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', pointerEvents: 'none', zIndex: -1 }}>
+          <svg width={340} height={340} viewBox="0 0 340 340" style={{ overflow: 'visible' }}>
+            {([
+              { angle: 0,     len: 120, w: 1.4 },
+              { angle: 22.5,  len: 78,  w: 0.7 },
+              { angle: 45,    len: 105, w: 1.2 },
+              { angle: 67.5,  len: 68,  w: 0.7 },
+              { angle: 90,    len: 115, w: 1.4 },
+              { angle: 112.5, len: 72,  w: 0.7 },
+              { angle: 135,   len: 100, w: 1.1 },
+              { angle: 157.5, len: 62,  w: 0.7 },
+              { angle: 180,   len: 122, w: 1.4 },
+              { angle: 202.5, len: 74,  w: 0.7 },
+              { angle: 225,   len: 98,  w: 1.2 },
+              { angle: 247.5, len: 64,  w: 0.7 },
+              { angle: 270,   len: 118, w: 1.4 },
+              { angle: 292.5, len: 70,  w: 0.7 },
+              { angle: 315,   len: 108, w: 1.1 },
+              { angle: 337.5, len: 60,  w: 0.7 },
+            ] as {angle:number;len:number;w:number}[]).map(({ angle, len, w }, i) => {
+              const rad = (angle * Math.PI) / 180
+              const cx = 170, cy = 170, startR = 66
+              const x1 = cx + startR * Math.cos(rad)
+              const y1 = cy + startR * Math.sin(rad)
+              const x2 = cx + (startR + len) * Math.cos(rad)
+              const y2 = cy + (startR + len) * Math.sin(rad)
+              const orbC = orbState === 'thinking' ? '245,158,11' : orbState === 'responding' ? '16,185,129' : '59,130,246'
+              return (
+                <line
+                  key={i}
+                  x1={x1} y1={y1} x2={x2} y2={y2}
+                  stroke={`rgba(${orbC},${w > 1 ? 0.7 : 0.45})`}
+                  strokeWidth={w}
+                  strokeLinecap="round"
+                  strokeDasharray="10 6"
+                  style={{ animation: `spiderGlow ${2.2 + (i % 4) * 0.4}s ${i * 0.14}s ease-in-out infinite` }}
+                />
+              )
+            })}
+            {/* Secondary shorter branches on the 4 cardinal lines */}
+            {[0, 90, 180, 270].map((angle, i) => {
+              const branchAngle = angle + 30
+              const rad0 = (angle * Math.PI) / 180
+              const radB = (branchAngle * Math.PI) / 180
+              const cx = 170, cy = 170, bStart = 120
+              const bx = cx + bStart * Math.cos(rad0)
+              const by = cy + bStart * Math.sin(rad0)
+              const orbC = orbState === 'thinking' ? '245,158,11' : orbState === 'responding' ? '16,185,129' : '59,130,246'
+              return (
+                <line key={`b${i}`}
+                  x1={bx} y1={by}
+                  x2={bx + 40 * Math.cos(radB)}
+                  y2={by + 40 * Math.sin(radB)}
+                  stroke={`rgba(${orbC},0.4)`} strokeWidth={0.7} strokeLinecap="round"
+                  strokeDasharray="6 5"
+                  style={{ animation: `spiderGlow 3s ${0.6 + i * 0.3}s ease-in-out infinite` }}
+                />
+              )
+            })}
+          </svg>
+        </div>
+
         {/* The orb itself */}
         <button
-          onClick={() => { setOrbOpen(o => !o) }}
+          onClick={() => setOrbOpen(o => !o)}
           title="Lion-Heart Command"
           style={{
-            width: 72, height: 72, borderRadius: '50%',
+            width: 120, height: 120, borderRadius: '50%',
             background: orbState === 'thinking'
-              ? 'radial-gradient(circle, #f59e0b, #d97706)'
+              ? 'radial-gradient(circle at 35% 35%, #fcd34d, #f59e0b, #b45309)'
               : orbState === 'responding'
-              ? 'radial-gradient(circle, #10b981, #059669)'
-              : 'radial-gradient(circle, #8b5cf6, #6d28d9)',
-            border: 'none', cursor: 'pointer',
-            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2,
-            animation: orbState === 'thinking' ? 'orbThink 1s ease-in-out infinite'
-              : orbState === 'responding' ? 'orbRespond 1.2s ease-in-out infinite'
-              : 'orbPulse 2.5s ease-in-out infinite',
-            transition: 'background 0.4s',
+              ? 'radial-gradient(circle at 35% 35%, #6ee7b7, #10b981, #065f46)'
+              : 'radial-gradient(circle at 35% 35%, #93c5fd, #3b82f6, #1e3a8a)',
+            border: `2px solid rgba(${orbState === 'thinking' ? '245,158,11' : orbState === 'responding' ? '16,185,129' : '96,165,250'},0.5)`,
+            cursor: 'pointer',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4,
+            animation: orbState === 'thinking' ? 'orbThink 0.9s ease-in-out infinite'
+              : orbState === 'responding'  ? 'orbRespond 1.1s ease-in-out infinite'
+              : 'orbPulse 2.8s ease-in-out infinite',
+            transition: 'background 0.5s, border-color 0.5s',
+            position: 'relative',
           }}
         >
-          <span style={{ fontSize: 26, lineHeight: 1, filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))' }}>🦁</span>
-          <span style={{ fontSize: 8, fontWeight: 800, color: 'rgba(255,255,255,0.85)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>Command</span>
+          {/* Inner glow ring */}
+          <div style={{
+            position: 'absolute', inset: 6, borderRadius: '50%',
+            background: 'radial-gradient(circle at 30% 30%, rgba(255,255,255,0.18) 0%, transparent 65%)',
+            pointerEvents: 'none',
+          }} />
+          <span style={{ fontSize: 38, lineHeight: 1, filter: 'drop-shadow(0 3px 8px rgba(0,0,0,0.6))', position: 'relative' }}>🦁</span>
+          <span style={{ fontSize: 8.5, fontWeight: 900, color: 'rgba(255,255,255,0.9)', letterSpacing: '0.16em', textTransform: 'uppercase', position: 'relative', textShadow: '0 1px 4px rgba(0,0,0,0.5)' }}>Command</span>
         </button>
       </div>
 
