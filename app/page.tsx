@@ -77,9 +77,18 @@ export default function Dashboard() {
   const [searching, setSearching] = useState(false)
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null)
   const [hasSearched, setHasSearched] = useState(false)
+  const [recentOrders, setRecentOrders] = useState<any[]>([])
+  const [recentLoading, setRecentLoading] = useState(true)
 
   useEffect(() => {
     const t = setInterval(() => setTime(new Date()), 1000)
+    return () => clearInterval(t)
+  }, [])
+
+  // Auto-refresh metrics every 5 min
+  useEffect(() => {
+    const refresh = () => fetch('/api/metrics').catch(() => {})
+    const t = setInterval(refresh, 5 * 60 * 1000)
     return () => clearInterval(t)
   }, [])
 
@@ -94,6 +103,11 @@ export default function Dashboard() {
     supabase.from('metrics').select('*').then(({ data }) => { if (data) setMetrics(data) })
     fetchQueue()
     fetch('/api/metrics').catch(() => {})
+    // Auto-load recent open orders
+    fetch('/api/orders?open=true')
+      .then(r => r.json())
+      .then(d => { setRecentOrders((d.orders ?? []).slice(0, 12)); setRecentLoading(false) })
+      .catch(() => setRecentLoading(false))
     const ch = supabase.channel('rt')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'agent_status' }, () => {
         supabase.from('agent_status').select('*').then(({ data }) => { if (data) setAgents(data) })
@@ -162,10 +176,11 @@ export default function Dashboard() {
   const mm = Object.fromEntries(metrics.map((m: any) => [m.key, m]))
   const held = queue.length
   const metricTiles = [
-    { k: 'textline_status', l: 'Textline 848', icon: '📱', accent: '#10b981' },
-    { k: 'open_tickets', l: 'Open tickets', icon: '🎫', accent: '#3b82f6' },
-    { k: 'held_for_you', l: 'Awaiting you', icon: '⏳', accent: held > 0 ? '#f59e0b' : '#8b5cf6' },
-    { k: 'actions_today', l: 'Actions today', icon: '⚡', accent: '#8b5cf6' },
+    { k: 'open_tickets',  l: 'Open orders',   icon: '📦', accent: '#3b82f6' },
+    { k: 'on_hold',       l: 'On hold',        icon: '⏸️',  accent: '#f59e0b' },
+    { k: 'shipped_today', l: 'Shipped today',  icon: '🚚', accent: '#10b981' },
+    { k: 'held_for_you',  l: 'Awaiting you',   icon: '⏳', accent: held > 0 ? '#ef4444' : '#8b5cf6' },
+    { k: 'actions_today', l: 'Agent actions',  icon: '⚡', accent: '#8b5cf6' },
   ]
 
   return (
@@ -307,7 +322,7 @@ export default function Dashboard() {
         </div>
 
         {/* ── METRIC TILES ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 28 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 12, marginBottom: 28 }}>
           {metricTiles.map(({ k, l, icon, accent }) => {
             const val = k === 'held_for_you' ? held : (mm[k]?.value ?? '—')
             return (
@@ -320,6 +335,40 @@ export default function Dashboard() {
               </Card>
             )
           })}
+        </div>
+
+        {/* ── RECENT OPEN ORDERS ── */}
+        <div style={{ marginBottom: 28 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+            <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600 }}>Recent open orders</div>
+            <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.05)' }} />
+            {!recentLoading && <div style={{ fontSize: 11, color: '#475569' }}>{recentOrders.length} shown</div>}
+          </div>
+          {recentLoading ? (
+            <div style={{ color: '#475569', fontSize: 13, padding: '12px 0' }}>Loading…</div>
+          ) : recentOrders.length === 0 ? (
+            <div style={{ color: '#475569', fontSize: 13 }}>No open orders</div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8 }}>
+              {recentOrders.map((o: any) => {
+                const sc = o.status === 'on hold' ? '#f59e0b' : '#3b82f6'
+                return (
+                  <Card key={o.orderNumber} style={{ padding: '12px 16px', cursor: 'pointer' }}
+                    onClick={() => { setSearchQ(o.orderNumber); setSearchResults([o]); setHasSearched(true); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
+                      <span style={{ fontWeight: 700, fontSize: 13, color: '#e2e8f0' }}>{o.orderNumber}</span>
+                      <span style={{ background: sc + '18', color: sc, fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{o.status}</span>
+                    </div>
+                    <div style={{ color: '#94a3b8', fontSize: 12, marginBottom: 3 }}>{o.customer || '—'}{o.company ? ` · ${o.company}` : ''}</div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ color: '#475569', fontSize: 11 }}>{o.itemCount} item{o.itemCount !== 1 ? 's' : ''}</span>
+                      <span style={{ color: '#475569', fontSize: 11 }}>{o.orderedDate ? new Date(o.orderedDate).toLocaleDateString() : ''}</span>
+                    </div>
+                  </Card>
+                )
+              })}
+            </div>
+          )}
         </div>
 
         {/* ── APPROVAL QUEUE ── */}
