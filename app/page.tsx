@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
 const SC: Record<string, string> = { active: '#10b981', needs_you: '#f59e0b', idle: '#475569' }
@@ -87,6 +87,10 @@ export default function Dashboard() {
   const [orbSending, setOrbSending] = useState(false)
   const [orbMessages, setOrbMessages] = useState<Array<{role:'user'|'agent'; agent?: string; content: string}>>([])
   const [orbState, setOrbState] = useState<'idle'|'thinking'|'responding'>('idle')
+  const [orbMousePos, setOrbMousePos] = useState<{x:number;y:number}>({x:0,y:0})
+  const [orbHover, setOrbHover] = useState(false)
+  const [orbFlash, setOrbFlash] = useState(false)
+  const orbRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     const t = setInterval(() => setTime(new Date()), 1000)
@@ -269,20 +273,29 @@ export default function Dashboard() {
         {/* ── PLASMA COMMAND ── */}
         <style>{`
           @keyframes plasmaFlicker {
-            from { opacity: 0.35; }
-            to   { opacity: 1; }
+            0%   { opacity: 0.28; }
+            50%  { opacity: 0.9; }
+            100% { opacity: 0.45; }
           }
           @keyframes plasmaGlow {
-            0%, 100% { filter: drop-shadow(0 0 14px rgba(139,92,246,0.85)) drop-shadow(0 0 35px rgba(109,40,217,0.55)); }
-            50%       { filter: drop-shadow(0 0 28px rgba(167,139,250,1))   drop-shadow(0 0 70px rgba(139,92,246,0.75)); }
+            0%, 100% { filter: drop-shadow(0 0 16px rgba(0,230,200,0.8)) drop-shadow(0 0 38px rgba(0,180,220,0.45)); }
+            50%       { filter: drop-shadow(0 0 32px rgba(0,255,220,1))   drop-shadow(0 0 75px rgba(0,200,240,0.65)); }
+          }
+          @keyframes plasmaHover {
+            0%, 100% { filter: drop-shadow(0 0 24px rgba(0,255,220,1)) drop-shadow(0 0 55px rgba(0,200,240,0.8)); }
+            50%       { filter: drop-shadow(0 0 40px rgba(0,255,220,1)) drop-shadow(0 0 90px rgba(0,220,255,0.9)); }
+          }
+          @keyframes plasmaFlash {
+            0%   { filter: drop-shadow(0 0 60px rgba(0,255,220,1)) drop-shadow(0 0 120px rgba(0,220,255,1)); }
+            100% { filter: drop-shadow(0 0 16px rgba(0,230,200,0.8)); }
           }
           @keyframes plasmaThink {
-            0%, 100% { filter: drop-shadow(0 0 10px rgba(96,165,250,0.9))  drop-shadow(0 0 28px rgba(59,130,246,0.55)); }
-            50%       { filter: drop-shadow(0 0 24px rgba(96,165,250,1))   drop-shadow(0 0 60px rgba(59,130,246,0.7)); }
+            0%, 100% { filter: drop-shadow(0 0 14px rgba(96,165,250,0.9))  drop-shadow(0 0 32px rgba(59,130,246,0.55)); }
+            50%       { filter: drop-shadow(0 0 28px rgba(96,165,250,1))   drop-shadow(0 0 65px rgba(59,130,246,0.7)); }
           }
           @keyframes plasmaRespond {
-            0%, 100% { filter: drop-shadow(0 0 12px rgba(16,185,129,0.85)) drop-shadow(0 0 32px rgba(5,150,105,0.5)); }
-            50%       { filter: drop-shadow(0 0 26px rgba(52,211,153,1))   drop-shadow(0 0 65px rgba(16,185,129,0.65)); }
+            0%, 100% { filter: drop-shadow(0 0 14px rgba(16,185,129,0.9)) drop-shadow(0 0 36px rgba(5,150,105,0.5)); }
+            50%       { filter: drop-shadow(0 0 30px rgba(52,211,153,1))   drop-shadow(0 0 70px rgba(16,185,129,0.65)); }
           }
           @keyframes cmdSlideUp {
             from { opacity: 0; transform: translateY(20px) translateX(-50%) scale(0.96); }
@@ -365,83 +378,152 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* Plasma ball trigger */}
-          <button onClick={() => setOrbOpen(o => !o)} title="Lion-Heart Command"
+          {/* Plasma ball trigger — mouse-interactive */}
+          <button
+            ref={orbRef}
+            title="Lion-Heart Command"
+            onMouseMove={(e: React.MouseEvent<HTMLButtonElement>) => {
+              const r = orbRef.current?.getBoundingClientRect()
+              if (!r) return
+              setOrbMousePos({ x: e.clientX - (r.left + r.width/2), y: e.clientY - (r.top + r.height/2) })
+            }}
+            onMouseEnter={() => setOrbHover(true)}
+            onMouseLeave={() => { setOrbHover(false); setOrbMousePos({x:0,y:0}) }}
+            onClick={() => {
+              setOrbOpen(o => !o)
+              setOrbFlash(true)
+              setTimeout(() => setOrbFlash(false), 500)
+            }}
             style={{
-              background: 'none', border: 'none', cursor: 'pointer', padding: 0,
-              display: 'block',
-              animation: orbState === 'thinking'   ? 'plasmaThink 0.9s ease-in-out infinite'
-                       : orbState === 'responding' ? 'plasmaRespond 1.1s ease-in-out infinite'
+              background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'block',
+              transform: orbHover ? 'scale(1.06)' : 'scale(1)',
+              transition: 'transform 0.25s ease',
+              animation: orbFlash           ? 'plasmaFlash 0.5s ease-out'
+                       : orbState==='thinking'   ? 'plasmaThink 0.9s ease-in-out infinite'
+                       : orbState==='responding' ? 'plasmaRespond 1.1s ease-in-out infinite'
+                       : orbHover               ? 'plasmaHover 1.8s ease-in-out infinite'
                        : 'plasmaGlow 3.5s ease-in-out infinite',
-              transition: 'filter 0.5s',
             }}>
-            <svg width={210} height={210} viewBox="-105 -105 210 210" style={{ overflow: 'visible', display: 'block' }}>
-              <defs>
-                <radialGradient id="plasmaBg" cx="50%" cy="50%" r="50%">
-                  <stop offset="0%"   stopColor="#4c1d95" />
-                  <stop offset="45%"  stopColor="#2e1065" />
-                  <stop offset="100%" stopColor="#0f0520" />
-                </radialGradient>
-                <filter id="arcGlow" x="-60%" y="-60%" width="220%" height="220%">
-                  <feGaussianBlur stdDeviation="2.5" result="blur1" />
-                  <feGaussianBlur stdDeviation="5"   result="blur2" in="SourceGraphic" />
-                  <feMerge>
-                    <feMergeNode in="blur2" />
-                    <feMergeNode in="blur1" />
-                    <feMergeNode in="SourceGraphic" />
-                  </feMerge>
-                </filter>
-                <filter id="coreGlow" x="-200%" y="-200%" width="500%" height="500%">
-                  <feGaussianBlur stdDeviation="6" result="b1" />
-                  <feGaussianBlur stdDeviation="12" result="b2" in="SourceGraphic" />
-                  <feMerge>
-                    <feMergeNode in="b2" /><feMergeNode in="b1" /><feMergeNode in="SourceGraphic" />
-                  </feMerge>
-                </filter>
-                <clipPath id="sphereClip">
-                  <circle cx={0} cy={0} r={96} />
-                </clipPath>
-              </defs>
+            {(() => {
+              // Mouse influence: pull arc control points toward cursor
+              const mx = orbMousePos.x * 0.38
+              const my = orbMousePos.y * 0.38
+              const bright = orbHover || orbFlash
+              // 14 arc endpoints on r=96 circle (degrees → radians)
+              const pts: [number,number,number,number,string,number][] = [
+                // [ex, ey, cpBiasX, cpBiasY, color, strokeW]
+                [ 96,  0,  48,   0, bright?'rgba(0,255,220,1)':'rgba(0,240,210,0.95)', bright?2.2:1.8],
+                [ 68, 68,  34,  34, bright?'rgba(0,220,255,0.9)':'rgba(0,200,240,0.75)', bright?1.6:1.2],
+                [  0, 96,   0,  48, bright?'rgba(0,255,220,1)':'rgba(0,240,210,0.92)', bright?2.0:1.7],
+                [-68, 68, -34,  34, bright?'rgba(0,220,255,0.85)':'rgba(0,200,240,0.68)', bright?1.5:1.1],
+                [-96,  0, -48,   0, bright?'rgba(0,255,220,1)':'rgba(0,240,210,0.90)', bright?2.0:1.6],
+                [-68,-68, -34, -34, bright?'rgba(0,220,255,0.85)':'rgba(0,200,240,0.72)', bright?1.6:1.2],
+                [  0,-96,   0, -48, bright?'rgba(0,255,220,0.95)':'rgba(0,240,210,0.88)', bright?1.9:1.5],
+                [ 68,-68,  34, -34, bright?'rgba(0,220,255,0.8)':'rgba(0,200,240,0.70)', bright?1.5:1.2],
+                // Diagonal extras
+                [ 83, 48,  42,  24, bright?'rgba(100,255,240,0.75)':'rgba(80,230,220,0.55)', bright?1.2:0.9],
+                [-48, 83, -24,  42, bright?'rgba(100,255,240,0.7)':'rgba(80,230,220,0.5)', bright?1.1:0.8],
+                [-83,-48, -42, -24, bright?'rgba(100,255,240,0.78)':'rgba(80,230,220,0.58)', bright?1.3:1.0],
+                [ 48,-83,  24, -42, bright?'rgba(100,255,240,0.72)':'rgba(80,230,220,0.52)', bright?1.1:0.9],
+                [ 25, 93,  13,  47, bright?'rgba(0,200,255,0.65)':'rgba(0,180,240,0.45)', bright?1.0:0.8],
+                [-93, 25, -47,  13, bright?'rgba(0,200,255,0.7)':'rgba(0,180,240,0.48)', bright?1.0:0.8],
+              ]
+              const flickerDurs = [1.8,2.2,1.6,2.4,1.9,2.1,1.7,2.3,2.6,2.8,2.5,2.9,2.4,2.7]
+              const flickerDels = [0,0.4,0.8,1.1,0.2,0.6,1.0,0.3,0.5,0.9,0.15,0.65,0.35,0.7]
+              return (
+                <svg width={210} height={210} viewBox="-105 -105 210 210"
+                  style={{ overflow: 'visible', display: 'block' }}>
+                  <defs>
+                    <radialGradient id="plasmaBg2" cx="50%" cy="50%" r="50%">
+                      <stop offset="0%"   stopColor="#002830" />
+                      <stop offset="35%"  stopColor="#001820" />
+                      <stop offset="100%" stopColor="#000810" />
+                    </radialGradient>
+                    <radialGradient id="plasmaInner" cx="40%" cy="40%" r="60%">
+                      <stop offset="0%"   stopColor="rgba(0,80,80,0.6)" />
+                      <stop offset="100%" stopColor="rgba(0,0,0,0)" />
+                    </radialGradient>
+                    <filter id="arcGlow2" x="-60%" y="-60%" width="220%" height="220%">
+                      <feGaussianBlur stdDeviation={bright ? 3.5 : 2.5} result="blur1" />
+                      <feGaussianBlur stdDeviation={bright ? 7 : 5} result="blur2" in="SourceGraphic" />
+                      <feMerge>
+                        <feMergeNode in="blur2" />
+                        <feMergeNode in="blur1" />
+                        <feMergeNode in="SourceGraphic" />
+                      </feMerge>
+                    </filter>
+                    <filter id="coreGlow2" x="-300%" y="-300%" width="700%" height="700%">
+                      <feGaussianBlur stdDeviation={8} result="b1" />
+                      <feGaussianBlur stdDeviation={16} result="b2" in="SourceGraphic" />
+                      <feMerge>
+                        <feMergeNode in="b2" /><feMergeNode in="b1" /><feMergeNode in="SourceGraphic" />
+                      </feMerge>
+                    </filter>
+                    <clipPath id="sphereClip2">
+                      <circle cx={0} cy={0} r={96} />
+                    </clipPath>
+                  </defs>
 
-              {/* Sphere body */}
-              <circle cx={0} cy={0} r={96} fill="url(#plasmaBg)" />
+                  {/* Sphere base */}
+                  <circle cx={0} cy={0} r={96} fill="url(#plasmaBg2)" />
+                  <circle cx={0} cy={0} r={96} fill="url(#plasmaInner)" />
 
-              {/* Plasma arcs — clipped inside sphere, no spinning */}
-              <g clipPath="url(#sphereClip)" filter="url(#arcGlow)">
-                {/* Main bright arcs */}
-                {[
-                  { d: 'M 0,0 Q 38,-18 72,-6 Q 88,0 94,14',       s: 'rgba(230,200,255,0.95)', w: 1.8, dur: 1.8, del: 0    },
-                  { d: 'M 0,0 Q 22,20 42,48 Q 60,72 68,88',        s: 'rgba(200,160,255,0.7)',  w: 1.2, dur: 2.2, del: 0.4  },
-                  { d: 'M 0,0 Q 6,35 4,68 Q 2,84 4,94',            s: 'rgba(230,200,255,0.92)', w: 1.7, dur: 1.6, del: 0.8  },
-                  { d: 'M 0,0 Q -22,28 -45,55 Q -62,75 -72,88',    s: 'rgba(200,160,255,0.68)', w: 1.1, dur: 2.4, del: 1.1  },
-                  { d: 'M 0,0 Q -38,10 -72,20 Q -84,24 -92,30',    s: 'rgba(230,200,255,0.90)', w: 1.6, dur: 1.9, del: 0.2  },
-                  { d: 'M 0,0 Q -34,-14 -65,-28 Q -80,-36 -88,-50', s: 'rgba(200,160,255,0.72)', w: 1.2, dur: 2.1, del: 0.6  },
-                  { d: 'M 0,0 Q -10,-34 -16,-65 Q -20,-80 -18,-94', s: 'rgba(230,200,255,0.88)', w: 1.5, dur: 1.7, del: 1.0  },
-                  { d: 'M 0,0 Q 16,-32 30,-62 Q 40,-78 46,-92',     s: 'rgba(200,160,255,0.7)',  w: 1.2, dur: 2.3, del: 0.3  },
-                  { d: 'M 0,0 Q 36,-8 70,-16 Q 84,-20 92,-28',      s: 'rgba(230,200,255,0.85)', w: 1.4, dur: 2.0, del: 0.7  },
-                  /* Secondary dimmer arcs */
-                  { d: 'M 0,0 Q 12,-8 26,-2 Q 50,8 68,28',          s: 'rgba(167,100,255,0.55)', w: 0.9, dur: 2.6, del: 0.5  },
-                  { d: 'M 0,0 Q -8,14 -16,30 Q -26,55 -30,80',      s: 'rgba(167,100,255,0.5)',  w: 0.8, dur: 2.8, del: 0.9  },
-                  { d: 'M 0,0 Q 18,8 38,18 Q 58,30 70,52',          s: 'rgba(180,120,255,0.6)',  w: 1.0, dur: 2.5, del: 0.15 },
-                  { d: 'M 0,0 Q -14,-6 -28,-12 Q -50,-20 -68,-36',  s: 'rgba(167,100,255,0.5)',  w: 0.8, dur: 2.9, del: 0.65 },
-                  { d: 'M 0,0 Q 4,-18 8,-36 Q 12,-58 14,-80',       s: 'rgba(180,120,255,0.58)', w: 0.9, dur: 2.4, del: 0.35 },
-                ].map(({ d, s, w, dur, del }, i) => (
-                  <path key={i} d={d} fill="none" stroke={s} strokeWidth={w} strokeLinecap="round"
-                    style={{ animation: `plasmaFlicker ${dur}s ${del}s ease-in-out infinite alternate` }} />
-                ))}
-              </g>
+                  {/* Plasma arcs — mouse-reactive bezier curves */}
+                  <g clipPath="url(#sphereClip2)" filter="url(#arcGlow2)">
+                    {pts.map(([ex, ey, cpbx, cpby, stroke, sw], i) => {
+                      // Control point = natural bias + mouse pull
+                      const cpx = cpbx + mx
+                      const cpy = cpby + my
+                      return (
+                        <path key={i}
+                          d={`M 0,0 Q ${cpx.toFixed(1)},${cpy.toFixed(1)} ${ex},${ey}`}
+                          fill="none" stroke={stroke} strokeWidth={sw} strokeLinecap="round"
+                          style={{ animation: `plasmaFlicker ${flickerDurs[i]}s ${flickerDels[i]}s ease-in-out infinite alternate` }} />
+                      )
+                    })}
+                  </g>
 
-              {/* Central bright node */}
-              <circle cx={0} cy={0} r={7}  fill="rgba(255,240,255,0.15)" />
-              <circle cx={0} cy={0} r={4}  fill="rgba(255,255,255,0.92)" filter="url(#coreGlow)" />
+                  {/* Center glow node */}
+                  <circle cx={0} cy={0} r={10} fill={bright ? 'rgba(0,255,220,0.12)' : 'rgba(0,200,180,0.07)'} />
+                  <circle cx={0} cy={0} r={4.5} fill="rgba(255,255,255,0.95)"
+                    filter="url(#coreGlow2)"
+                    style={{ filter: 'drop-shadow(0 0 8px rgba(0,255,220,1)) drop-shadow(0 0 18px rgba(0,200,240,0.9))' }} />
 
-              {/* Glass sphere rim — outer bright ring */}
-              <circle cx={0} cy={0} r={96} fill="none"
-                stroke="rgba(200,170,255,0.75)" strokeWidth={2}
-                style={{ filter: 'drop-shadow(0 0 8px rgba(167,139,250,0.9))' }} />
-              <circle cx={0} cy={0} r={100} fill="none"
-                stroke="rgba(139,92,246,0.3)" strokeWidth={1.5} />
-            </svg>
+                  {/* Mouse attraction indicator — small dot that follows cursor inside sphere */}
+                  {(orbMousePos.x !== 0 || orbMousePos.y !== 0) && (() => {
+                    const dist = Math.sqrt(orbMousePos.x**2 + orbMousePos.y**2)
+                    const maxD = 88
+                    const scale = dist > maxD ? maxD / dist : 1
+                    const tx = orbMousePos.x * scale * 0.82
+                    const ty = orbMousePos.y * scale * 0.82
+                    return (
+                      <circle cx={tx} cy={ty} r={3.5} fill="rgba(0,255,220,0.65)"
+                        style={{ filter: 'drop-shadow(0 0 6px rgba(0,255,220,0.9))' }} />
+                    )
+                  })()}
+
+                  {/* Flash ring on click */}
+                  {orbFlash && (
+                    <circle cx={0} cy={0} r={96} fill="none"
+                      stroke="rgba(0,255,220,0.6)" strokeWidth={4}
+                      style={{ animation: 'plasmaFlash 0.5s ease-out forwards' }} />
+                  )}
+
+                  {/* Sphere glass rim */}
+                  <circle cx={0} cy={0} r={96} fill="none"
+                    stroke={bright ? 'rgba(0,255,220,0.85)' : 'rgba(0,220,200,0.65)'}
+                    strokeWidth={bright ? 2.5 : 1.8}
+                    style={{ filter: `drop-shadow(0 0 ${bright?12:7}px rgba(0,220,200,0.9))`, transition: 'all 0.25s' }} />
+                  <circle cx={0} cy={0} r={100} fill="none"
+                    stroke="rgba(0,150,180,0.2)" strokeWidth={1.2} />
+
+                  {/* Specular highlight */}
+                  <ellipse cx={-28} cy={-30} rx={18} ry={10}
+                    fill="rgba(255,255,255,0.07)"
+                    transform="rotate(-35 -28 -30)" />
+                </svg>
+              )
+            })()}
           </button>
         </div>
 
