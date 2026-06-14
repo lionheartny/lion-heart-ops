@@ -106,6 +106,12 @@ export default function Dashboard() {
   const [bulkSelected, setBulkSelected] = useState<Set<string>>(new Set())
   const [bulkReleasing, setBulkReleasing] = useState(false)
   const [bulkProgress, setBulkProgress] = useState(0)
+  // #11 Pinned orders
+  const [pinnedOrders, setPinnedOrders] = useState<any[]>(() => {
+    try { return JSON.parse(typeof window !== 'undefined' ? (localStorage.getItem('lh_pinned_orders') ?? '[]') : '[]') } catch { return [] }
+  })
+  // #12 Last-refreshed per section
+  const [lastRefreshed, setLastRefreshed] = useState<Record<string, Date>>({})
   const orbRef = useRef<HTMLButtonElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const watchSectionRef = useRef<HTMLDivElement>(null)
@@ -159,7 +165,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     supabase.from('agent_status').select('*').then(({ data }) => { if (data) setAgents(data) })
-    supabase.from('metrics').select('*').then(({ data }) => { if (data) setMetrics(data) })
+    supabase.from('metrics').select('*').then(({ data }) => { if (data) { setMetrics(data); setLastRefreshed(prev => ({ ...prev, metrics: new Date() })) } })
     fetchQueue()
     fetch('/api/metrics').catch(() => {})
     // Auto-load on-hold + unallocated orders
@@ -170,11 +176,12 @@ export default function Dashboard() {
       setOnHoldOrders(held.orders ?? [])
       setUnallocOrders(unalloc.orders ?? [])
       setWatchLoading(false)
+      setLastRefreshed(prev => ({ ...prev, watch: new Date() }))
     }).catch(() => setWatchLoading(false))
     // Load global activity feed
     supabase.from('agent_activity').select('*')
       .order('created_at', { ascending: false }).limit(30)
-      .then(({ data }) => { if (data) setFeedActivity(data) })
+      .then(({ data }) => { if (data) { setFeedActivity(data); setLastRefreshed(prev => ({ ...prev, activity: new Date() })) } })
 
     const ch = supabase.channel('rt')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'agent_status' }, () => {
@@ -272,6 +279,53 @@ export default function Dashboard() {
   }
 
   // #9 Bulk release
+  // #12 Manual refresh handlers
+  const refreshWatch = () => {
+    setWatchLoading(true)
+    Promise.all([
+      fetch('/api/orders?onhold=true').then(r => r.json()),
+      fetch('/api/orders?unallocated=true').then(r => r.json()),
+    ]).then(([held, unalloc]) => {
+      setOnHoldOrders(held.orders ?? [])
+      setUnallocOrders(unalloc.orders ?? [])
+      setWatchLoading(false)
+      setLastRefreshed(prev => ({ ...prev, watch: new Date() }))
+    }).catch(() => setWatchLoading(false))
+  }
+  const refreshMetrics = () => {
+    fetch('/api/metrics').catch(() => {})
+    supabase.from('metrics').select('*').then(({ data }) => {
+      if (data) { setMetrics(data); setLastRefreshed(prev => ({ ...prev, metrics: new Date() })) }
+    })
+  }
+  const refreshActivity = () => {
+    supabase.from('agent_activity').select('*')
+      .order('created_at', { ascending: false }).limit(30)
+      .then(({ data }) => { if (data) { setFeedActivity(data); setLastRefreshed(prev => ({ ...prev, activity: new Date() })) } })
+  }
+
+  // #11 Toggle pin
+  const togglePin = (order: any) => {
+    setPinnedOrders(prev => {
+      const exists = prev.some((o: any) => o.orderNumber === order.orderNumber)
+      const next = exists
+        ? prev.filter((o: any) => o.orderNumber !== order.orderNumber)
+        : [...prev, order]
+      try { localStorage.setItem('lh_pinned_orders', JSON.stringify(next)) } catch {}
+      return next
+    })
+  }
+
+  // #12 Relative-time helper (updates via time state ticker)
+  const ago = (d: Date | undefined): string | null => {
+    if (!d) return null
+    const s = Math.floor((Date.now() - d.getTime()) / 1000)
+    if (s < 10) return 'just now'
+    if (s < 60) return `${s}s ago`
+    if (s < 3600) return `${Math.floor(s / 60)}m ago`
+    return `${Math.floor(s / 3600)}h ago`
+  }
+
   const bulkRelease = async () => {
     if (bulkReleasing || bulkSelected.size === 0) return
     setBulkReleasing(true); setBulkProgress(0)
@@ -783,6 +837,17 @@ export default function Dashboard() {
         </div>
 
         {/* ── METRIC TILES ── */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+          <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600 }}>Metrics</div>
+          <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.05)' }} />
+          {ago(lastRefreshed.metrics) && (
+            <span style={{ fontSize: 11, color: '#334155' }}>Updated {ago(lastRefreshed.metrics)}</span>
+          )}
+          <button onClick={refreshMetrics} title="Refresh metrics"
+            style={{ background: 'none', border: 'none', color: '#334155', cursor: 'pointer', fontSize: 13, padding: '2px 4px', lineHeight: 1, transition: 'color 0.15s' }}>
+            🔄
+          </button>
+        </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 28 }}>
           {metricTiles.map(({ k, l, icon, accent }) => {
             const val = k === 'held_for_you' ? held : (mm[k]?.value ?? '—')
@@ -832,8 +897,48 @@ export default function Dashboard() {
           })}
         </div>
 
+        {/* ── PINNED ORDERS STRIP ── */}
+        {pinnedOrders.length > 0 && (
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <span style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600 }}>⭐ Pinned</span>
+              <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.05)' }} />
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {pinnedOrders.map((o: any) => (
+                <div key={o.orderNumber} style={{ display: 'flex', alignItems: 'center', gap: 0, background: 'rgba(252,211,77,0.06)', border: '1px solid rgba(252,211,77,0.22)', borderRadius: 8, overflow: 'hidden' }}>
+                  <button
+                    onClick={() => setSelectedOrder(o)}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 7, padding: '6px 10px 6px 12px' }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: '#fcd34d' }}>{o.orderNumber}</span>
+                    {o.customer && <span style={{ fontSize: 11, color: '#64748b', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.customer}</span>}
+                  </button>
+                  <button
+                    onClick={() => togglePin(o)}
+                    title="Unpin"
+                    style={{ background: 'none', border: 'none', borderLeft: '1px solid rgba(252,211,77,0.18)', color: '#475569', cursor: 'pointer', fontSize: 12, padding: '6px 9px', lineHeight: 1, transition: 'color 0.15s' }}>
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* ── WATCH TILES ── */}
-        <div ref={watchSectionRef} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 28 }}>
+        <div ref={watchSectionRef}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+          <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600 }}>Watch</div>
+          <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.05)' }} />
+          {ago(lastRefreshed.watch) && (
+            <span style={{ fontSize: 11, color: '#334155' }}>Updated {ago(lastRefreshed.watch)}</span>
+          )}
+          <button onClick={refreshWatch} title="Refresh watch orders"
+            style={{ background: 'none', border: 'none', color: '#334155', cursor: 'pointer', fontSize: 13, padding: '2px 4px', lineHeight: 1, transition: 'color 0.15s' }}>
+            🔄
+          </button>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 28 }}>
           {(['on_hold', 'unalloc'] as const).map((tileKey) => {
             const isOnHold = tileKey === 'on_hold'
             const orders   = isOnHold ? onHoldOrders : unallocOrders
@@ -940,6 +1045,7 @@ export default function Dashboard() {
             )
           })}
         </div>
+        </div>{/* end watchSectionRef wrapper */}
 
                 {/* ── APPROVAL QUEUE ── */}
         {queue.length > 0 && (
@@ -1048,6 +1154,13 @@ export default function Dashboard() {
             <div style={{ fontSize: 11, background: '#10b98112', border: '1px solid #10b98130', padding: '1px 8px', borderRadius: 8, color: '#10b981' }}>
               {feedActivity.length} events
             </div>
+            {ago(lastRefreshed.activity) && (
+              <span style={{ fontSize: 11, color: '#334155' }}>Updated {ago(lastRefreshed.activity)}</span>
+            )}
+            <button onClick={refreshActivity} title="Refresh activity"
+              style={{ background: 'none', border: 'none', color: '#334155', cursor: 'pointer', fontSize: 13, padding: '2px 4px', lineHeight: 1 }}>
+              🔄
+            </button>
           </div>
 
           <div style={{
@@ -1393,11 +1506,26 @@ export default function Dashboard() {
                   </span>
                 )}
               </div>
-              <button
-                onClick={() => { setSelectedOrder(null); setDrawerAction('idle'); setCopiedTracking(false) }}
-                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8', cursor: 'pointer', fontSize: 18, lineHeight: 1, padding: '6px 11px', borderRadius: 8 }}>
-                ×
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {/* #11 Pin button */}
+                <button
+                  onClick={() => togglePin(selectedOrder)}
+                  title={pinnedOrders.some((o: any) => o.orderNumber === selectedOrder.orderNumber) ? 'Unpin order' : 'Pin order'}
+                  style={{
+                    background: pinnedOrders.some((o: any) => o.orderNumber === selectedOrder.orderNumber) ? 'rgba(252,211,77,0.15)' : 'rgba(255,255,255,0.04)',
+                    border: `1px solid ${pinnedOrders.some((o: any) => o.orderNumber === selectedOrder.orderNumber) ? 'rgba(252,211,77,0.4)' : 'rgba(255,255,255,0.1)'}`,
+                    color: pinnedOrders.some((o: any) => o.orderNumber === selectedOrder.orderNumber) ? '#fcd34d' : '#475569',
+                    cursor: 'pointer', fontSize: 15, lineHeight: 1, padding: '6px 10px', borderRadius: 8,
+                    transition: 'all 0.15s',
+                  }}>
+                  {pinnedOrders.some((o: any) => o.orderNumber === selectedOrder.orderNumber) ? '⭐' : '☆'}
+                </button>
+                <button
+                  onClick={() => { setSelectedOrder(null); setDrawerAction('idle'); setCopiedTracking(false) }}
+                  style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8', cursor: 'pointer', fontSize: 18, lineHeight: 1, padding: '6px 11px', borderRadius: 8 }}>
+                  ×
+                </button>
+              </div>
             </div>
 
             {/* Action bar */}
