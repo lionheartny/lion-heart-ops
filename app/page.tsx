@@ -275,8 +275,16 @@ export default function Dashboard() {
             100% { box-shadow: 0 0 50px rgba(147,197,253,1), 0 0 110px rgba(96,165,250,0.7), 0 0 220px rgba(59,130,246,0.4), 0 0 360px rgba(30,64,175,0.18); }
           }
           @keyframes orbThink {
-            0%, 100% { box-shadow: 0 0 0 0 rgba(96,165,250,0.9), 0 0 40px rgba(96,165,250,0.7); }
-            50%       { box-shadow: 0 0 0 28px rgba(96,165,250,0), 0 0 80px rgba(96,165,250,0.3); }
+            0%, 100% { filter: drop-shadow(0 0 7px rgba(96,165,250,0.85)) drop-shadow(0 0 16px rgba(59,130,246,0.45)); opacity: 0.85; }
+            50%       { filter: drop-shadow(0 0 24px rgba(96,165,250,1)) drop-shadow(0 0 55px rgba(59,130,246,0.65)); opacity: 1; }
+          }
+          @keyframes webPulse {
+            0%, 100% { filter: drop-shadow(0 0 7px rgba(96,165,250,0.55)) drop-shadow(0 0 20px rgba(59,130,246,0.25)); opacity: 0.78; }
+            50%       { filter: drop-shadow(0 0 16px rgba(147,197,253,0.9)) drop-shadow(0 0 44px rgba(96,165,250,0.48)); opacity: 1; }
+          }
+          @keyframes webRespond {
+            0%, 100% { filter: drop-shadow(0 0 8px rgba(16,185,129,0.75)); opacity: 0.85; }
+            50%       { filter: drop-shadow(0 0 22px rgba(52,211,153,1)) drop-shadow(0 0 52px rgba(16,185,129,0.5)); opacity: 1; }
           }
           @keyframes orbRespond {
             0%, 100% { box-shadow: 0 0 0 0 rgba(16,185,129,0.9), 0 0 30px rgba(16,185,129,0.6); }
@@ -301,7 +309,7 @@ export default function Dashboard() {
         `}</style>
 
         {/* Full-width HUD fixed at bottom */}
-        <div style={{ position: 'relative', margin: '0 auto -80px', zIndex: 2, width: 980, height: 300, pointerEvents: 'none' }}>
+        <div style={{ position: 'relative', margin: '0 auto', zIndex: 2, width: 980, height: 300, pointerEvents: 'none' }}>
 
           {/* SVG HUD LAYER */}
           <svg width={980} height={300} viewBox="0 0 980 300"
@@ -413,7 +421,7 @@ export default function Dashboard() {
             {/* Command Panel */}
             {orbOpen && (
               <div style={{
-                position: 'absolute', top: 150, left: '50%', transform: 'translateX(-50%)',
+                position: 'absolute', top: 170, left: '50%', transform: 'translateX(-50%)',
                 width: 430, background: 'rgba(5,2,0,0.98)',
                 border: '1px solid rgba(96,165,250,0.35)', borderRadius: 18, overflow: 'hidden',
                 boxShadow: '0 32px 80px rgba(0,0,0,0.95), 0 0 0 1px rgba(96,165,250,0.06), 0 0 80px rgba(59,130,246,0.12)',
@@ -477,30 +485,63 @@ export default function Dashboard() {
               </div>
             )}
 
-            {/* Spinning dashed rings */}
-            <div style={{ position: 'absolute', top: -25, left: -25, right: -25, bottom: -25, borderRadius: '50%', border: '1.5px dashed rgba(96,165,250,0.5)', animation: 'orbRingSpin 10s linear infinite', pointerEvents: 'none' }} />
-            <div style={{ position: 'absolute', top: -36, left: -36, right: -36, bottom: -36, borderRadius: '50%', border: '1px dashed rgba(59,130,246,0.3)', animation: 'orbRingSpinR 17s linear infinite', pointerEvents: 'none' }} />
-
-            {/* Outer glow ring */}
-            <div style={{ position: 'absolute', top: -14, left: -14, right: -14, bottom: -14, borderRadius: '50%', border: '2px solid rgba(147,197,253,0.78)', boxShadow: '0 0 26px rgba(96,165,250,0.85), 0 0 65px rgba(59,130,246,0.48), inset 0 0 22px rgba(96,165,250,0.18)', animation: 'ringGlow 2.4s ease-in-out infinite', pointerEvents: 'none' }} />
-
-            {/* Amber plasma ball */}
+            {/* Spider-web plasma trigger */}
             <button onClick={() => setOrbOpen(o => !o)} title="Lion-Heart Command"
               style={{
-                width: 136, height: 136, borderRadius: '50%', border: 'none', cursor: 'pointer',
-                background: orbState === 'responding'
-                  ? 'radial-gradient(circle at 38% 33%, #ecfdf5 0%, #6ee7b7 10%, #10b981 30%, #065f46 58%, #022c22 84%)'
-                  : 'radial-gradient(circle at 38% 33%, #ffffff 0%, #dbeafe 10%, #93c5fd 22%, #3b82f6 42%, #1e40af 65%, #0f2057 85%)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+                width: 160, height: 160,
                 animation: orbState === 'thinking'   ? 'orbThink 0.9s ease-in-out infinite'
-                         : orbState === 'responding' ? 'orbRespond 1.1s ease-in-out infinite'
-                         : 'orbCore 3.5s ease-in-out infinite',
-                transition: 'background 0.5s',
-                position: 'relative',
+                         : orbState === 'responding' ? 'webRespond 1.1s ease-in-out infinite'
+                         : 'webPulse 3.5s ease-in-out infinite',
+                transition: 'filter 0.5s',
               }}>
-              <div style={{ position: 'absolute', top: 12, left: 20, width: 44, height: 44, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,255,255,0.95) 0%, transparent 72%)', pointerEvents: 'none' }} />
-              <div style={{ position: 'absolute', top: 38, left: 10, width: 20, height: 20, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,255,255,0.38) 0%, transparent 70%)', pointerEvents: 'none' }} />
-              <img src="/lh-logo.png" style={{ width: 64, height: 64, objectFit: 'contain', filter: 'brightness(0) invert(1) drop-shadow(0 2px 20px rgba(0,0,0,0.95))', position: 'relative', flexShrink: 0 }} />
+              <svg width={160} height={160} viewBox="-80 -80 160 160" style={{ overflow: 'visible' }}>
+                {/* 6 concentric web rings */}
+                {[16, 30, 44, 57, 68, 78].map((r, ri) => (
+                  <circle key={ri} cx={0} cy={0} r={r} fill="none"
+                    stroke={`rgba(96,165,250,${(0.25 + ri * 0.07).toFixed(2)})`}
+                    strokeWidth={ri === 5 ? 1.2 : 0.7}
+                    strokeDasharray={ri % 2 === 1 ? '3 2' : undefined} />
+                ))}
+                {/* 8 radial spokes */}
+                {Array.from({length: 8}, (_, i) => {
+                  const a = i * 45 * Math.PI / 180
+                  return (
+                    <line key={i}
+                      x1={0} y1={0} x2={78 * Math.cos(a)} y2={78 * Math.sin(a)}
+                      stroke={`rgba(96,165,250,${i % 2 === 0 ? 0.4 : 0.22})`}
+                      strokeWidth={i % 2 === 0 ? 0.85 : 0.5} />
+                  )
+                })}
+                {/* Intersection nodes */}
+                {[16, 30, 44, 57, 68, 78].flatMap((r, ri) =>
+                  Array.from({length: 8}, (_, i) => {
+                    const a = i * 45 * Math.PI / 180
+                    return (
+                      <circle key={`n${ri}-${i}`}
+                        cx={r * Math.cos(a)} cy={r * Math.sin(a)}
+                        r={ri >= 4 ? 2.2 : 1.4}
+                        fill={`rgba(147,197,253,${ri >= 4 ? 0.72 : 0.4})`} />
+                    )
+                  })
+                )}
+                {/* Centre glow node */}
+                <circle cx={0} cy={0} r={8} fill="rgba(147,197,253,0.08)" />
+                <circle cx={0} cy={0} r={3.5} fill="rgba(147,197,253,0.92)"
+                  style={{ filter: 'drop-shadow(0 0 5px rgba(147,197,253,1)) drop-shadow(0 0 12px rgba(96,165,250,0.8))' }} />
+                {/* Slow-spinning outer dashed orbit */}
+                <circle cx={0} cy={0} r={78} fill="none" stroke="rgba(59,130,246,0.45)"
+                  strokeWidth={1.4} strokeDasharray="10 5 3 5">
+                  <animateTransform attributeName="transform" type="rotate"
+                    from="0 0 0" to="360 0 0" dur="18s" repeatCount="indefinite" />
+                </circle>
+                {/* Counter-spinning inner dashed ring */}
+                <circle cx={0} cy={0} r={44} fill="none" stroke="rgba(96,165,250,0.3)"
+                  strokeWidth={0.8} strokeDasharray="6 4">
+                  <animateTransform attributeName="transform" type="rotate"
+                    from="0 0 0" to="-360 0 0" dur="11s" repeatCount="indefinite" />
+                </circle>
+              </svg>
             </button>
           </div>
         </div>
