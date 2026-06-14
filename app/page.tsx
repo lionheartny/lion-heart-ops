@@ -95,6 +95,8 @@ export default function Dashboard() {
   const [selectedOrder, setSelectedOrder] = useState<any>(null)
   const [drawerAction, setDrawerAction] = useState<'idle'|'releasing'|'released'|'error'>('idle')
   const [copiedTracking, setCopiedTracking] = useState(false)
+  const [drillTab, setDrillTab] = useState<'activity'|'chat'>('activity')
+  const chatEndRef = useRef<HTMLDivElement>(null)
   const orbRef = useRef<HTMLButtonElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const watchSectionRef = useRef<HTMLDivElement>(null)
@@ -178,8 +180,9 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (!selected) return
+    setDrillTab('activity')
     supabase.from('agent_activity').select('*').eq('agent_id', selected.id)
-      .order('created_at', { ascending: false }).limit(5)
+      .order('created_at', { ascending: false }).limit(20)
       .then(({ data }) => { if (data) setActivity(data) })
     supabase.from('chat_messages').select('*').eq('agent_id', selected.id)
       .order('created_at')
@@ -481,6 +484,14 @@ export default function Dashboard() {
           @keyframes feedIn {
             from { opacity: 0; transform: translateY(-8px); }
             to   { opacity: 1; transform: translateY(0); }
+          }
+          @keyframes panelSlideIn {
+            from { opacity: 0; transform: translateX(32px); }
+            to   { opacity: 1; transform: translateX(0); }
+          }
+          @keyframes panelFadeIn {
+            from { opacity: 0; }
+            to   { opacity: 1; }
           }
           @keyframes feedPulse {
             0%   { box-shadow: 0 0 0 0 rgba(16,185,129,0.55); }
@@ -977,81 +988,169 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* ── AGENT DETAIL ── */}
-        {selected && !chatOpen && (
-          <Card style={{ padding: 24 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
-              <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
-                <AgentAvatar name={selected.name} size={48} />
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: 17 }}>{selected.name}</div>
-                  <div style={{ color: '#64748b', fontSize: 13, marginTop: 2 }}>{selected.role}</div>
-                  <div style={{ marginTop: 6 }}><StatusDot status={selected.status} /></div>
-                </div>
-              </div>
-              <button onClick={() => setSelected(null)} style={{ background: 'none', border: 'none', color: '#475569', cursor: 'pointer', fontSize: 20, lineHeight: 1, padding: 4 }}>×</button>
-            </div>
-            {selected.current_task && (
-              <div style={{ marginBottom: 18, padding: '12px 16px', background: 'rgba(255,255,255,0.03)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.06)' }}>
-                <div style={{ color: '#475569', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 5, fontWeight: 600 }}>Working on</div>
-                <div style={{ fontSize: 14, color: '#e2e8f0' }}>{selected.current_task}</div>
-              </div>
-            )}
-            {activity.length > 0 && (
-              <div style={{ marginBottom: 18 }}>
-                <div style={{ color: '#475569', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10, fontWeight: 600 }}>Recent activity</div>
-                {activity.map((a: any) => (
-                  <div key={a.id} style={{ color: '#94a3b8', fontSize: 13, padding: '7px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>{a.description}</div>
-                ))}
-              </div>
-            )}
-            <button onClick={() => setChatOpen(true)}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'linear-gradient(135deg, #8b5cf6, #3b82f6)', border: 'none', color: '#fff', padding: '9px 18px', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600, boxShadow: '0 4px 14px rgba(139,92,246,0.35)' }}>
-              Chat with {selected.name} ↗
-            </button>
-          </Card>
-        )}
-
-        {/* ── CHAT ── */}
-        {selected && chatOpen && (
-          <Card style={{ padding: 20, display: 'flex', flexDirection: 'column', height: 420 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <AgentAvatar name={selected.name} size={30} />
-                <div style={{ fontWeight: 600, fontSize: 14 }}>Chat with {selected.name}</div>
-              </div>
-              <button onClick={() => setChatOpen(false)} style={{ background: 'none', border: 'none', color: '#475569', cursor: 'pointer', fontSize: 20, lineHeight: 1, padding: 4 }}>×</button>
-            </div>
-            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 12 }}>
-              {messages.map((m, i) => {
-                const ac = AGENT_COLORS[selected.id] ?? '#8b5cf6'
-                return (
-                  <div key={i} style={{
-                    alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
-                    background: m.role === 'user' ? 'linear-gradient(135deg, #8b5cf6, #3b82f6)' : 'rgba(255,255,255,0.05)',
-                    border: m.role === 'user' ? 'none' : `1px solid ${ac}33`,
-                    padding: '10px 14px', borderRadius: 12, maxWidth: '80%', fontSize: 13, lineHeight: 1.5,
-                    color: m.role === 'user' ? '#fff' : '#e2e8f0',
-                  }}>
-                    {m.content}
-                  </div>
-                )
-              })}
-              {sending && <div style={{ color: '#475569', fontSize: 13 }}>● ● ●</div>}
-            </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && sendMessage()}
-                placeholder={`Message ${selected.name}…`}
-                style={{ flex: 1, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: '#f1f5f9', padding: '10px 14px', borderRadius: 8, fontSize: 13, outline: 'none' }} />
-              <button onClick={sendMessage} disabled={sending}
-                style={{ background: 'linear-gradient(135deg, #8b5cf6, #3b82f6)', border: 'none', color: '#fff', padding: '10px 20px', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
-                Send
-              </button>
-            </div>
-          </Card>
-        )}
+        {/* Agent drill-down panel is rendered in the fixed overlay below */}
 
       </div>    </div>
+
+      {/* ── AGENT DRILL-DOWN PANEL ── */}
+      {selected && (() => {
+        const ac = AGENT_COLORS[selected.id] ?? '#8b5cf6'
+        return (
+          <>
+            {/* Backdrop */}
+            <div
+              onClick={() => { setSelected(null); setChatOpen(false) }}
+              style={{
+                position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)',
+                zIndex: 55, backdropFilter: 'blur(1px)',
+                animation: 'panelFadeIn 0.2s ease',
+              }}
+            />
+            {/* Panel */}
+            <div style={{
+              position: 'fixed', top: 0, right: 0, bottom: 0, width: 400,
+              background: 'rgba(8,12,22,0.98)', borderLeft: `1px solid ${ac}30`,
+              zIndex: 56, display: 'flex', flexDirection: 'column',
+              animation: 'panelSlideIn 0.22s ease',
+              boxShadow: `-12px 0 48px rgba(0,0,0,0.6)`,
+            }}>
+
+              {/* ── Panel header ── */}
+              <div style={{
+                padding: '24px 24px 18px',
+                borderBottom: '1px solid rgba(255,255,255,0.06)',
+                background: `linear-gradient(180deg, ${ac}08 0%, transparent 100%)`,
+                flexShrink: 0,
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
+                    <div style={{
+                      width: 60, height: 60, borderRadius: '50%',
+                      background: ac + '20', border: `2px solid ${ac}55`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontWeight: 800, fontSize: 22, color: ac, flexShrink: 0,
+                      boxShadow: `0 0 20px ${ac}30`,
+                    }}>
+                      {selected.name?.[0] ?? '?'}
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: 18, letterSpacing: '-0.01em' }}>{selected.name}</div>
+                      <div style={{ color: '#64748b', fontSize: 13, marginTop: 3 }}>{selected.role}</div>
+                      <div style={{ marginTop: 7 }}><StatusDot status={selected.status} /></div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => { setSelected(null); setChatOpen(false) }}
+                    style={{ background: 'rgba(255,255,255,0.06)', border: 'none', color: '#94a3b8', cursor: 'pointer', borderRadius: 6, width: 28, height: 28, fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+                  >×</button>
+                </div>
+
+                {/* Current task */}
+                {selected.current_task && (
+                  <div style={{ marginTop: 16, padding: '10px 14px', background: ac + '0d', borderRadius: 8, border: `1px solid ${ac}25` }}>
+                    <div style={{ fontSize: 10, color: ac, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700, marginBottom: 4 }}>Working on</div>
+                    <div style={{ fontSize: 13, color: '#e2e8f0', lineHeight: 1.45 }}>{selected.current_task}</div>
+                  </div>
+                )}
+
+                {/* Tabs */}
+                <div style={{ display: 'flex', gap: 4, marginTop: 16 }}>
+                  {(['activity', 'chat'] as const).map(tab => (
+                    <button key={tab} onClick={() => setDrillTab(tab)}
+                      style={{
+                        flex: 1, padding: '7px 0', borderRadius: 7, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600,
+                        background: drillTab === tab ? ac + '22' : 'rgba(255,255,255,0.04)',
+                        color: drillTab === tab ? ac : '#475569',
+                        transition: 'background 0.15s, color 0.15s',
+                        textTransform: 'uppercase', letterSpacing: '0.06em',
+                      }}>
+                      {tab === 'activity' ? `Activity (${activity.length})` : `Chat with ${selected.name.split(' ')[0]}`}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* ── Activity tab ── */}
+              {drillTab === 'activity' && (
+                <div style={{ flex: 1, overflowY: 'auto', padding: '12px 0' }}>
+                  {activity.length === 0 ? (
+                    <div style={{ padding: '32px 24px', textAlign: 'center', color: '#334155', fontSize: 13 }}>
+                      No recent activity logged.
+                    </div>
+                  ) : activity.map((ev: any, idx: number) => (
+                    <div key={ev.id} style={{
+                      padding: '10px 24px',
+                      borderBottom: idx < activity.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
+                      display: 'flex', gap: 12, alignItems: 'flex-start',
+                    }}>
+                      <div style={{
+                        width: 6, height: 6, borderRadius: '50%', background: ac, flexShrink: 0,
+                        marginTop: 6, boxShadow: idx === 0 ? `0 0 6px ${ac}` : 'none',
+                        opacity: idx === 0 ? 1 : 0.4 + (1 - idx / activity.length) * 0.5,
+                      }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, color: '#94a3b8', lineHeight: 1.45 }}>{ev.description}</div>
+                        <div style={{ fontSize: 11, color: '#334155', marginTop: 4 }}>{timeAgo(ev.created_at)}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* ── Chat tab ── */}
+              {drillTab === 'chat' && (
+                <>
+                  <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {messages.length === 0 && (
+                      <div style={{ textAlign: 'center', color: '#334155', fontSize: 13, marginTop: 32 }}>
+                        Start a conversation with {selected.name.split(' ')[0]}.
+                      </div>
+                    )}
+                    {messages.map((m: any, i: number) => (
+                      <div key={i} style={{
+                        alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
+                        background: m.role === 'user' ? `linear-gradient(135deg, ${ac}, ${ac}99)` : 'rgba(255,255,255,0.05)',
+                        border: m.role === 'user' ? 'none' : `1px solid ${ac}25`,
+                        padding: '10px 14px', borderRadius: 12, maxWidth: '84%',
+                        fontSize: 13, lineHeight: 1.5,
+                        color: m.role === 'user' ? '#fff' : '#e2e8f0',
+                      }}>
+                        {m.content}
+                      </div>
+                    ))}
+                    {sending && (
+                      <div style={{ alignSelf: 'flex-start', color: '#475569', fontSize: 18, letterSpacing: 4, padding: '4px 14px' }}>● ● ●</div>
+                    )}
+                    <div ref={chatEndRef} />
+                  </div>
+                  <div style={{ padding: '14px 20px', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', gap: 8, flexShrink: 0 }}>
+                    <input
+                      value={input} onChange={e => setInput(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && sendMessage()}
+                      placeholder={`Message ${selected.name.split(' ')[0]}…`}
+                      style={{
+                        flex: 1, background: 'rgba(255,255,255,0.05)', border: `1px solid ${ac}30`,
+                        color: '#f1f5f9', padding: '10px 14px', borderRadius: 8,
+                        fontSize: 13, outline: 'none',
+                      }}
+                    />
+                    <button onClick={sendMessage} disabled={sending}
+                      style={{
+                        background: ac, border: 'none', color: '#fff',
+                        padding: '10px 18px', borderRadius: 8, cursor: 'pointer',
+                        fontSize: 13, fontWeight: 600, opacity: sending ? 0.6 : 1,
+                        transition: 'opacity 0.15s',
+                      }}>
+                      Send
+                    </button>
+                  </div>
+                </>
+              )}
+
+            </div>
+          </>
+        )
+      })()}
 
       {/* ── ORDER DETAIL DRAWER ── */}
       {selectedOrder && (
