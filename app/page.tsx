@@ -90,6 +90,8 @@ export default function Dashboard() {
   const [orbMousePos, setOrbMousePos] = useState<{x:number;y:number}>({x:0,y:0})
   const [orbHover, setOrbHover] = useState(false)
   const [orbFlash, setOrbFlash] = useState(false)
+  const [feedActivity, setFeedActivity] = useState<any[]>([])
+  const [feedNew, setFeedNew] = useState<Set<number>>(new Set())
   const [selectedOrder, setSelectedOrder] = useState<any>(null)
   const [drawerAction, setDrawerAction] = useState<'idle'|'releasing'|'released'|'error'>('idle')
   const [copiedTracking, setCopiedTracking] = useState(false)
@@ -127,6 +129,11 @@ export default function Dashboard() {
       setUnallocOrders(unalloc.orders ?? [])
       setWatchLoading(false)
     }).catch(() => setWatchLoading(false))
+    // Load global activity feed
+    supabase.from('agent_activity').select('*')
+      .order('created_at', { ascending: false }).limit(30)
+      .then(({ data }) => { if (data) setFeedActivity(data) })
+
     const ch = supabase.channel('rt')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'agent_status' }, () => {
         supabase.from('agent_status').select('*').then(({ data }) => { if (data) setAgents(data) })
@@ -134,6 +141,11 @@ export default function Dashboard() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'approval_queue' }, fetchQueue)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'metrics' }, () => {
         supabase.from('metrics').select('*').then(({ data }) => { if (data) setMetrics(data) })
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'agent_activity' }, ({ new: row }) => {
+        setFeedActivity(prev => [row, ...prev].slice(0, 30))
+        setFeedNew(prev => new Set([...prev, row.id]))
+        setTimeout(() => setFeedNew(prev => { const n = new Set(prev); n.delete(row.id); return n }), 4000)
       })
       .subscribe()
     return () => { supabase.removeChannel(ch) }
@@ -224,6 +236,15 @@ export default function Dashboard() {
     { k: 'held_for_you',  l: 'Awaiting you',   icon: '⏳', accent: held > 0 ? '#ef4444' : '#8b5cf6' },
     { k: 'actions_today', l: 'Agent actions',  icon: '⚡', accent: '#8b5cf6' },
   ]
+
+  const timeAgo = (ts: string) => {
+    const diff = Math.floor((Date.now() - new Date(ts).getTime()) / 1000)
+    if (diff < 10)  return 'just now'
+    if (diff < 60)  return `${diff}s ago`
+    if (diff < 3600) return `${Math.floor(diff/60)}m ago`
+    if (diff < 86400) return `${Math.floor(diff/3600)}h ago`
+    return `${Math.floor(diff/86400)}d ago`
+  }
 
   const releaseHold = async () => {
     if (!selectedOrder || drawerAction === 'releasing') return
@@ -343,6 +364,19 @@ export default function Dashboard() {
           @keyframes orbDot {
             0%, 80%, 100% { opacity: 0.2; transform: scale(0.7); }
             40%            { opacity: 1;   transform: scale(1); }
+          }
+          @keyframes feedIn {
+            from { opacity: 0; transform: translateY(-8px); }
+            to   { opacity: 1; transform: translateY(0); }
+          }
+          @keyframes feedPulse {
+            0%   { box-shadow: 0 0 0 0 rgba(16,185,129,0.55); }
+            70%  { box-shadow: 0 0 0 8px rgba(16,185,129,0); }
+            100% { box-shadow: 0 0 0 0 rgba(16,185,129,0); }
+          }
+          @keyframes liveDot {
+            0%, 100% { opacity: 1; }
+            50%       { opacity: 0.3; }
           }
           @keyframes drawerUp {
             from { transform: translateY(100%); opacity: 0; }
@@ -728,6 +762,72 @@ export default function Dashboard() {
               </Card>
             )
           })}
+        </div>
+
+        {/* ── LIVE ACTIVITY FEED ── */}
+        <div style={{ marginBottom: 28 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+            <span style={{
+              width: 7, height: 7, borderRadius: '50%', background: '#10b981', display: 'inline-block',
+              animation: 'liveDot 2s ease-in-out infinite',
+              boxShadow: '0 0 6px rgba(16,185,129,0.7)',
+            }} />
+            <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600 }}>Live activity</div>
+            <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.05)' }} />
+            <div style={{ fontSize: 11, background: '#10b98112', border: '1px solid #10b98130', padding: '1px 8px', borderRadius: 8, color: '#10b981' }}>
+              {feedActivity.length} events
+            </div>
+          </div>
+
+          <div style={{
+            background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)',
+            borderRadius: 12, overflow: 'hidden',
+            maxHeight: 320, overflowY: 'auto',
+          }}>
+            {feedActivity.length === 0 ? (
+              <div style={{ padding: '28px 20px', textAlign: 'center', color: '#334155', fontSize: 13 }}>
+                No activity yet — agents will log here as they work.
+              </div>
+            ) : feedActivity.map((ev: any, idx: number) => {
+              const isNew = feedNew.has(ev.id)
+              const agentId  = ev.agent_id ?? ''
+              const ac = AGENT_COLORS[agentId] ?? '#64748b'
+              const agentName = agentId.charAt(0).toUpperCase() + agentId.slice(1)
+              const isFirst = idx === 0
+              return (
+                <div key={ev.id} style={{
+                  display: 'flex', alignItems: 'flex-start', gap: 12,
+                  padding: '11px 18px',
+                  borderBottom: idx < feedActivity.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
+                  borderLeft: isNew ? '2px solid #10b981' : '2px solid transparent',
+                  background: isNew ? 'rgba(16,185,129,0.04)' : isFirst ? 'rgba(255,255,255,0.015)' : 'transparent',
+                  animation: isNew ? 'feedIn 0.35s ease, feedPulse 0.8s ease' : undefined,
+                  transition: 'background 0.5s, border-color 0.5s',
+                }}>
+                  {/* Agent dot */}
+                  <div style={{
+                    width: 26, height: 26, borderRadius: '50%', flexShrink: 0, marginTop: 1,
+                    background: ac + '18', border: `1.5px solid ${ac}50`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 11, fontWeight: 800, color: ac,
+                  }}>
+                    {agentName[0] ?? '?'}
+                  </div>
+
+                  {/* Text */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: ac, marginRight: 6 }}>{agentName}</span>
+                    <span style={{ fontSize: 13, color: '#94a3b8', lineHeight: 1.45 }}>{ev.description}</span>
+                  </div>
+
+                  {/* Time */}
+                  <div style={{ fontSize: 11, color: '#334155', flexShrink: 0, marginTop: 3, fontVariantNumeric: 'tabular-nums' }}>
+                    {timeAgo(ev.created_at)}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         </div>
 
         {/* ── AGENT DETAIL ── */}
