@@ -112,6 +112,14 @@ export default function Dashboard() {
   })
   // #12 Last-refreshed per section
   const [lastRefreshed, setLastRefreshed] = useState<Record<string, Date>>({})
+  // Gmail feed
+  const [gmailMessages, setGmailMessages] = useState<any[]>([])
+  const [gmailUnread, setGmailUnread] = useState(0)
+  const [gmailLoading, setGmailLoading] = useState(true)
+  // Calendar feed
+  const [calEvents, setCalEvents] = useState<any[]>([])
+  const [calNextEvent, setCalNextEvent] = useState<any>(null)
+  const [calLoading, setCalLoading] = useState(true)
   const orbRef = useRef<HTMLButtonElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const watchSectionRef = useRef<HTMLDivElement>(null)
@@ -182,6 +190,16 @@ export default function Dashboard() {
     supabase.from('agent_activity').select('*')
       .order('created_at', { ascending: false }).limit(30)
       .then(({ data }) => { if (data) { setFeedActivity(data); setLastRefreshed(prev => ({ ...prev, activity: new Date() })) } })
+    // Gmail
+    fetch('/api/gmail').then(r => r.json()).then(d => {
+      setGmailMessages(d.messages ?? []); setGmailUnread(d.unreadCount ?? 0); setGmailLoading(false)
+      setLastRefreshed(prev => ({ ...prev, gmail: new Date() }))
+    }).catch(() => setGmailLoading(false))
+    // Calendar
+    fetch('/api/calendar').then(r => r.json()).then(d => {
+      setCalEvents(d.events ?? []); setCalNextEvent(d.nextEvent ?? null); setCalLoading(false)
+      setLastRefreshed(prev => ({ ...prev, calendar: new Date() }))
+    }).catch(() => setCalLoading(false))
 
     const ch = supabase.channel('rt')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'agent_status' }, () => {
@@ -302,6 +320,20 @@ export default function Dashboard() {
     supabase.from('agent_activity').select('*')
       .order('created_at', { ascending: false }).limit(30)
       .then(({ data }) => { if (data) { setFeedActivity(data); setLastRefreshed(prev => ({ ...prev, activity: new Date() })) } })
+  }
+  const refreshGmail = () => {
+    setGmailLoading(true)
+    fetch('/api/gmail').then(r => r.json()).then(d => {
+      setGmailMessages(d.messages ?? []); setGmailUnread(d.unreadCount ?? 0); setGmailLoading(false)
+      setLastRefreshed(prev => ({ ...prev, gmail: new Date() }))
+    }).catch(() => setGmailLoading(false))
+  }
+  const refreshCalendar = () => {
+    setCalLoading(true)
+    fetch('/api/calendar').then(r => r.json()).then(d => {
+      setCalEvents(d.events ?? []); setCalNextEvent(d.nextEvent ?? null); setCalLoading(false)
+      setLastRefreshed(prev => ({ ...prev, calendar: new Date() }))
+    }).catch(() => setCalLoading(false))
   }
 
   // #11 Toggle pin
@@ -896,6 +928,142 @@ export default function Dashboard() {
             )
           })}
         </div>
+
+        {/* ── GMAIL + CALENDAR ROW ── */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 28 }}>
+
+          {/* ── GMAIL ── */}
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+              <span style={{ fontSize: 15 }}>✉️</span>
+              <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600 }}>Inbox</div>
+              {gmailUnread > 0 && (
+                <div style={{ background: '#ef444418', border: '1px solid #ef444444', color: '#ef4444', fontSize: 11, fontWeight: 700, padding: '1px 7px', borderRadius: 10 }}>
+                  {gmailUnread} unread
+                </div>
+              )}
+              <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.05)' }} />
+              {ago(lastRefreshed.gmail) && <span style={{ fontSize: 11, color: '#334155' }}>Updated {ago(lastRefreshed.gmail)}</span>}
+              <button onClick={refreshGmail} title="Refresh inbox" style={{ background: 'none', border: 'none', color: '#334155', cursor: 'pointer', fontSize: 13, padding: '2px 4px' }}>🔄</button>
+            </div>
+            <Card style={{ padding: 0, overflow: 'hidden' }}>
+              {gmailLoading ? (
+                <div style={{ padding: '28px 20px', textAlign: 'center', color: '#334155', fontSize: 13 }}>Loading inbox…</div>
+              ) : gmailMessages.length === 0 ? (
+                <div style={{ padding: '28px 20px', textAlign: 'center', color: '#334155', fontSize: 13 }}>Inbox is clear ✓</div>
+              ) : (
+                <div style={{ maxHeight: 340, overflowY: 'auto' }}>
+                  {gmailMessages.map((msg: any, idx: number) => (
+                    <a key={msg.id} href={msg.url} target="_blank" rel="noopener noreferrer"
+                      style={{ display: 'block', textDecoration: 'none', padding: '11px 16px',
+                        borderBottom: idx < gmailMessages.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
+                        background: msg.isUnread ? 'rgba(255,255,255,0.02)' : 'transparent',
+                        borderLeft: msg.isUnread ? '2px solid #60a5fa' : '2px solid transparent',
+                        transition: 'background 0.1s',
+                      }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 }}>
+                        <span style={{ fontSize: 12, fontWeight: msg.isUnread ? 700 : 500, color: msg.isUnread ? '#f1f5f9' : '#94a3b8', maxWidth: '65%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {msg.isStarred ? '⭐ ' : ''}{msg.from}
+                        </span>
+                        <span style={{ fontSize: 10, color: '#334155', fontFamily: 'monospace', flexShrink: 0 }}>
+                          {msg.date ? new Date(msg.date).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }) : ''}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 12, color: msg.isUnread ? '#cbd5e1' : '#64748b', marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {msg.subject}
+                      </div>
+                      <div style={{ fontSize: 11, color: '#334155', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {msg.snippet}
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              )}
+            </Card>
+          </div>
+
+          {/* ── CALENDAR ── */}
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+              <span style={{ fontSize: 15 }}>📅</span>
+              <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600 }}>Calendar</div>
+              {calNextEvent && (
+                <div style={{
+                  background: '#8b5cf618', border: '1px solid #8b5cf644', color: '#8b5cf6',
+                  fontSize: 11, fontWeight: 700, padding: '1px 7px', borderRadius: 10,
+                }}>
+                  {calNextEvent.minutesUntil <= 0 ? 'Now' : calNextEvent.minutesUntil < 60 ? `in ${calNextEvent.minutesUntil}m` : `in ${Math.round(calNextEvent.minutesUntil / 60)}h`}
+                </div>
+              )}
+              <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.05)' }} />
+              {ago(lastRefreshed.calendar) && <span style={{ fontSize: 11, color: '#334155' }}>Updated {ago(lastRefreshed.calendar)}</span>}
+              <button onClick={refreshCalendar} title="Refresh calendar" style={{ background: 'none', border: 'none', color: '#334155', cursor: 'pointer', fontSize: 13, padding: '2px 4px' }}>🔄</button>
+            </div>
+            <Card style={{ padding: 0, overflow: 'hidden' }}>
+              {calLoading ? (
+                <div style={{ padding: '28px 20px', textAlign: 'center', color: '#334155', fontSize: 13 }}>Loading calendar…</div>
+              ) : calEvents.filter(e => e.isToday).length === 0 ? (
+                <div style={{ padding: '28px 20px', textAlign: 'center', color: '#334155', fontSize: 13 }}>Nothing on the schedule today ✓</div>
+              ) : (
+                <div style={{ maxHeight: 340, overflowY: 'auto' }}>
+                  {/* Today label */}
+                  <div style={{ padding: '8px 16px 4px', fontSize: 10, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700, background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                    Today · {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+                  </div>
+                  {calEvents.filter(e => e.isToday).map((ev: any, idx: number) => {
+                    const isNext = calNextEvent?.id === ev.id
+                    const isPast = ev.isPast
+                    const startT = ev.isAllDay ? 'All day' : new Date(ev.start).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+                    const endT   = ev.isAllDay ? '' : new Date(ev.end).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+                    return (
+                      <a key={ev.id} href={ev.meetLink || ev.url || '#'} target="_blank" rel="noopener noreferrer"
+                        style={{ display: 'block', textDecoration: 'none', padding: '11px 16px',
+                          borderBottom: '1px solid rgba(255,255,255,0.04)',
+                          borderLeft: isNext ? '2px solid #8b5cf6' : '2px solid transparent',
+                          background: isNext ? 'rgba(139,92,246,0.04)' : 'transparent',
+                          opacity: isPast ? 0.45 : 1,
+                        }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 12, fontWeight: isNext ? 700 : 500, color: isNext ? '#c4b5fd' : '#94a3b8', marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {ev.title}
+                            </div>
+                            {ev.location && <div style={{ fontSize: 11, color: '#334155', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>📍 {ev.location}</div>}
+                            {ev.meetLink && <div style={{ fontSize: 11, color: '#60a5fa' }}>🎥 Join call</div>}
+                          </div>
+                          <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                            <div style={{ fontSize: 11, color: isNext ? '#8b5cf6' : '#475569', fontWeight: isNext ? 700 : 400 }}>{startT}</div>
+                            {endT && <div style={{ fontSize: 10, color: '#334155' }}>{endT}</div>}
+                          </div>
+                        </div>
+                      </a>
+                    )
+                  })}
+                  {/* Upcoming (next 3 non-today) */}
+                  {calEvents.filter(e => !e.isToday).slice(0, 3).length > 0 && (
+                    <>
+                      <div style={{ padding: '8px 16px 4px', fontSize: 10, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700, borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                        Upcoming
+                      </div>
+                      {calEvents.filter(e => !e.isToday).slice(0, 3).map((ev: any) => (
+                        <a key={ev.id} href={ev.url || '#'} target="_blank" rel="noopener noreferrer"
+                          style={{ display: 'block', textDecoration: 'none', padding: '9px 16px', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                            <div style={{ fontSize: 12, color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev.title}</div>
+                            <div style={{ fontSize: 11, color: '#334155', flexShrink: 0 }}>
+                              {new Date(ev.start).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                            </div>
+                          </div>
+                        </a>
+                      ))}
+                    </>
+                  )}
+                </div>
+              )}
+            </Card>
+          </div>
+
+        </div>{/* end GMAIL + CALENDAR ROW */}
 
         {/* ── PINNED ORDERS STRIP ── */}
         {pinnedOrders.length > 0 && (
