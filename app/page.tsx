@@ -115,10 +115,13 @@ export default function Dashboard() {
   // Gmail feed
   const [gmailMessages, setGmailMessages] = useState<any[]>([])
   const [gmailUnread, setGmailUnread] = useState(0)
+  const [gmailUnreadBSJ, setGmailUnreadBSJ] = useState(0)
+  const [gmailHasBSJ, setGmailHasBSJ] = useState(false)
   const [gmailLoading, setGmailLoading] = useState(true)
   // Calendar feed
   const [calEvents, setCalEvents] = useState<any[]>([])
   const [calNextEvent, setCalNextEvent] = useState<any>(null)
+  const [calHasBSJ, setCalHasBSJ] = useState(false)
   const [calLoading, setCalLoading] = useState(true)
   const orbRef = useRef<HTMLButtonElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
@@ -192,12 +195,17 @@ export default function Dashboard() {
       .then(({ data }) => { if (data) { setFeedActivity(data); setLastRefreshed(prev => ({ ...prev, activity: new Date() })) } })
     // Gmail
     fetch('/api/gmail').then(r => r.json()).then(d => {
-      setGmailMessages(d.messages ?? []); setGmailUnread(d.unreadCount ?? 0); setGmailLoading(false)
+      setGmailMessages(d.messages ?? [])
+      setGmailUnread(d.unreadCount ?? 0)
+      setGmailUnreadBSJ(d.unreadCountBSJ ?? 0)
+      setGmailHasBSJ(d.hasBSJ ?? false)
+      setGmailLoading(false)
       setLastRefreshed(prev => ({ ...prev, gmail: new Date() }))
     }).catch(() => setGmailLoading(false))
     // Calendar
     fetch('/api/calendar').then(r => r.json()).then(d => {
-      setCalEvents(d.events ?? []); setCalNextEvent(d.nextEvent ?? null); setCalLoading(false)
+      setCalEvents(d.events ?? []); setCalNextEvent(d.nextEvent ?? null)
+      setCalHasBSJ(d.hasBSJ ?? false); setCalLoading(false)
       setLastRefreshed(prev => ({ ...prev, calendar: new Date() }))
     }).catch(() => setCalLoading(false))
 
@@ -324,14 +332,19 @@ export default function Dashboard() {
   const refreshGmail = () => {
     setGmailLoading(true)
     fetch('/api/gmail').then(r => r.json()).then(d => {
-      setGmailMessages(d.messages ?? []); setGmailUnread(d.unreadCount ?? 0); setGmailLoading(false)
+      setGmailMessages(d.messages ?? [])
+      setGmailUnread(d.unreadCount ?? 0)
+      setGmailUnreadBSJ(d.unreadCountBSJ ?? 0)
+      setGmailHasBSJ(d.hasBSJ ?? false)
+      setGmailLoading(false)
       setLastRefreshed(prev => ({ ...prev, gmail: new Date() }))
     }).catch(() => setGmailLoading(false))
   }
   const refreshCalendar = () => {
     setCalLoading(true)
     fetch('/api/calendar').then(r => r.json()).then(d => {
-      setCalEvents(d.events ?? []); setCalNextEvent(d.nextEvent ?? null); setCalLoading(false)
+      setCalEvents(d.events ?? []); setCalNextEvent(d.nextEvent ?? null)
+      setCalHasBSJ(d.hasBSJ ?? false); setCalLoading(false)
       setLastRefreshed(prev => ({ ...prev, calendar: new Date() }))
     }).catch(() => setCalLoading(false))
   }
@@ -939,7 +952,12 @@ export default function Dashboard() {
               <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600 }}>Inbox</div>
               {gmailUnread > 0 && (
                 <div style={{ background: '#ef444418', border: '1px solid #ef444444', color: '#ef4444', fontSize: 11, fontWeight: 700, padding: '1px 7px', borderRadius: 10 }}>
-                  {gmailUnread} unread
+                  LH {gmailUnread}
+                </div>
+              )}
+              {gmailHasBSJ && gmailUnreadBSJ > 0 && (
+                <div style={{ background: '#f59e0b18', border: '1px solid #f59e0b44', color: '#f59e0b', fontSize: 11, fontWeight: 700, padding: '1px 7px', borderRadius: 10 }}>
+                  BSJ {gmailUnreadBSJ}
                 </div>
               )}
               <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.05)' }} />
@@ -958,13 +976,20 @@ export default function Dashboard() {
                       style={{ display: 'block', textDecoration: 'none', padding: '11px 16px',
                         borderBottom: idx < gmailMessages.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
                         background: msg.isUnread ? 'rgba(255,255,255,0.02)' : 'transparent',
-                        borderLeft: msg.isUnread ? '2px solid #60a5fa' : '2px solid transparent',
+                        borderLeft: msg.isUnread ? `2px solid ${msg.account === 'BSJ' ? '#f59e0b' : '#60a5fa'}` : '2px solid transparent',
                         transition: 'background 0.1s',
                       }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 }}>
-                        <span style={{ fontSize: 12, fontWeight: msg.isUnread ? 700 : 500, color: msg.isUnread ? '#f1f5f9' : '#94a3b8', maxWidth: '65%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {msg.isStarred ? '⭐ ' : ''}{msg.from}
-                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 5, maxWidth: '70%', minWidth: 0 }}>
+                          {gmailHasBSJ && (
+                            <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.05em', color: msg.account === 'BSJ' ? '#f59e0b' : '#60a5fa', flexShrink: 0, opacity: 0.8 }}>
+                              {msg.account}
+                            </span>
+                          )}
+                          <span style={{ fontSize: 12, fontWeight: msg.isUnread ? 700 : 500, color: msg.isUnread ? '#f1f5f9' : '#94a3b8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {msg.isStarred ? '⭐ ' : ''}{msg.from}
+                          </span>
+                        </div>
                         <span style={{ fontSize: 10, color: '#334155', fontFamily: 'monospace', flexShrink: 0 }}>
                           {msg.date ? new Date(msg.date).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }) : ''}
                         </span>
@@ -987,6 +1012,11 @@ export default function Dashboard() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
               <span style={{ fontSize: 15 }}>📅</span>
               <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600 }}>Calendar</div>
+              {calHasBSJ && (
+                <div style={{ background: '#f59e0b18', border: '1px solid #f59e0b44', color: '#f59e0b', fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 8 }}>
+                  LH + BSJ
+                </div>
+              )}
               {calNextEvent && (
                 <div style={{
                   background: '#8b5cf618', border: '1px solid #8b5cf644', color: '#8b5cf6',
@@ -1025,8 +1055,13 @@ export default function Dashboard() {
                         }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: 12, fontWeight: isNext ? 700 : 500, color: isNext ? '#c4b5fd' : '#94a3b8', marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {ev.title}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 2 }}>
+                              {calHasBSJ && ev.account === 'BSJ' && (
+                                <span style={{ fontSize: 9, fontWeight: 700, color: '#f59e0b', letterSpacing: '0.05em', flexShrink: 0 }}>BSJ</span>
+                              )}
+                              <div style={{ fontSize: 12, fontWeight: isNext ? 700 : 500, color: isNext ? '#c4b5fd' : '#94a3b8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {ev.title}
+                              </div>
                             </div>
                             {ev.location && <div style={{ fontSize: 11, color: '#334155', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>📍 {ev.location}</div>}
                             {ev.meetLink && <div style={{ fontSize: 11, color: '#60a5fa' }}>🎥 Join call</div>}
@@ -1049,7 +1084,12 @@ export default function Dashboard() {
                         <a key={ev.id} href={ev.url || '#'} target="_blank" rel="noopener noreferrer"
                           style={{ display: 'block', textDecoration: 'none', padding: '9px 16px', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0 }}>
+                            {calHasBSJ && ev.account === 'BSJ' && (
+                              <span style={{ fontSize: 9, fontWeight: 700, color: '#f59e0b', letterSpacing: '0.05em', flexShrink: 0 }}>BSJ</span>
+                            )}
                             <div style={{ fontSize: 12, color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev.title}</div>
+                          </div>
                             <div style={{ fontSize: 11, color: '#334155', flexShrink: 0 }}>
                               {new Date(ev.start).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
                             </div>
