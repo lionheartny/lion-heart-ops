@@ -97,6 +97,15 @@ export default function Dashboard() {
   const [copiedTracking, setCopiedTracking] = useState(false)
   const [drillTab, setDrillTab] = useState<'activity'|'chat'>('activity')
   const chatEndRef = useRef<HTMLDivElement>(null)
+  // #7 Command palette
+  const [paletteOpen, setPaletteOpen] = useState(false)
+  const [paletteQ, setPaletteQ] = useState('')
+  const [paletteCursor, setPaletteCursor] = useState(0)
+  const paletteInputRef = useRef<HTMLInputElement>(null)
+  // #9 Bulk hold release
+  const [bulkSelected, setBulkSelected] = useState<Set<string>>(new Set())
+  const [bulkReleasing, setBulkReleasing] = useState(false)
+  const [bulkProgress, setBulkProgress] = useState(0)
   const orbRef = useRef<HTMLButtonElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const watchSectionRef = useRef<HTMLDivElement>(null)
@@ -107,9 +116,15 @@ export default function Dashboard() {
       const tag = (e.target as HTMLElement)?.tagName
       const inInput = tag === 'INPUT' || tag === 'TEXTAREA'
       if (e.key === 'Escape') {
+        if (paletteOpen) { setPaletteOpen(false); setPaletteQ(''); return }
         setSelectedOrder(null); setDrawerAction('idle'); setCopiedTracking(false)
         setOrbOpen(false); setSelected(null)
         setSearchResults([]); setSearchQ('')
+      }
+      if ((e.key === 'k') && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault()
+        setPaletteOpen(prev => { if (!prev) { setPaletteQ(''); setPaletteCursor(0) } return !prev })
+        setTimeout(() => paletteInputRef.current?.focus(), 30)
       }
       if (e.key === '/' && !inInput) {
         e.preventDefault()
@@ -255,6 +270,37 @@ export default function Dashboard() {
     setSearchResults(data.orders ?? [])
     setSearching(false)
   }
+
+  // #9 Bulk release
+  const bulkRelease = async () => {
+    if (bulkReleasing || bulkSelected.size === 0) return
+    setBulkReleasing(true); setBulkProgress(0)
+    const orders = onHoldOrders.filter(o => bulkSelected.has(o.orderNumber))
+    for (let i = 0; i < orders.length; i++) {
+      try {
+        await fetch('/api/orders/release', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: orders[i].id, orderNumber: orders[i].orderNumber }),
+        })
+      } catch {}
+      setBulkProgress(i + 1)
+    }
+    setBulkSelected(new Set()); setBulkReleasing(false); setBulkProgress(0)
+    fetch('/api/orders?onhold=true').then(r => r.json()).then(d => setOnHoldOrders(d.orders ?? []))
+  }
+
+  // #7 Command palette commands
+  const paletteCommands = [
+    { id: 'search',  label: 'Search orders',       icon: '🔍', group: 'Nav',    action: () => { searchInputRef.current?.focus(); setPaletteOpen(false) } },
+    { id: 'hold',    label: 'View on-hold orders',  icon: '⏸️', group: 'Nav',    action: () => { setExpandedWatch('on_hold'); setTimeout(() => watchSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60); setPaletteOpen(false) } },
+    { id: 'orb',     label: 'Open Command Orb',     icon: '🔮', group: 'Nav',    action: () => { setOrbOpen(true); setPaletteOpen(false) } },
+    { id: 'unalloc', label: 'View unallocated orders', icon: '⚠️', group: 'Nav', action: () => { setExpandedWatch('unalloc'); setTimeout(() => watchSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60); setPaletteOpen(false) } },
+    ...agents.map((a: any) => ({ id: `agent-${a.id}`, label: `Open ${a.name}`, icon: '👤', group: 'Agents', action: () => { setSelected(a); setChatOpen(false); setDrillTab('activity'); setPaletteOpen(false) } })),
+    ...agents.map((a: any) => ({ id: `chat-${a.id}`,  label: `Chat with ${a.name}`, icon: '💬', group: 'Agents', action: () => { setSelected(a); setChatOpen(false); setDrillTab('chat'); setPaletteOpen(false) } })),
+    ...queue.map((q: any) => ({ id: `approve-${q.id}`, label: `Approve: ${q.subject}`, icon: '✓', group: 'Queue',  action: () => { handleQueue(q.id, 'approved'); setPaletteOpen(false) } })),
+    ...queue.map((q: any) => ({ id: `reject-${q.id}`,  label: `Dismiss: ${q.subject}`, icon: '✕', group: 'Queue',  action: () => { handleQueue(q.id, 'rejected'); setPaletteOpen(false) } })),
+    ...onHoldOrders.slice(0, 12).map((o: any) => ({ id: `order-${o.orderNumber}`, label: `${o.orderNumber} · ${o.customer || 'Unknown'}`, icon: '📦', group: 'Orders', action: () => { setSelectedOrder(o); setPaletteOpen(false) } })),
+  ]
 
   const mm = Object.fromEntries(metrics.map((m: any) => [m.key, m]))
   const held = queue.length
@@ -484,6 +530,10 @@ export default function Dashboard() {
           @keyframes feedIn {
             from { opacity: 0; transform: translateY(-8px); }
             to   { opacity: 1; transform: translateY(0); }
+          }
+          @keyframes paletteIn {
+            from { opacity: 0; transform: translateY(-14px) scale(0.97); }
+            to   { opacity: 1; transform: translateY(0) scale(1); }
           }
           @keyframes panelSlideIn {
             from { opacity: 0; transform: translateX(32px); }
@@ -817,20 +867,73 @@ export default function Dashboard() {
                       <Card style={{ padding: '14px 16px' }}>
                         <div style={{ color: '#475569', fontSize: 13 }}>{isOnHold ? 'No orders on hold ✓' : 'All orders allocated ✓'}</div>
                       </Card>
-                    ) : orders.map((o: any) => (
-                      <Card key={o.orderNumber} style={{ padding: '12px 16px', cursor: 'pointer', borderColor: 'rgba(245,158,11,0.25)' }}
-                        onClick={(e: React.MouseEvent) => { e.stopPropagation(); setSelectedOrder(o) }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
-                          <span style={{ fontWeight: 700, fontSize: 13, color: '#fcd34d' }}>{o.orderNumber}</span>
-                          {isOnHold
-                            ? <span style={{ color: '#64748b', fontSize: 10, fontFamily: 'monospace' }}>{o.shipVia}</span>
-                            : <span style={{ background: '#f59e0b18', color: '#f59e0b', fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 4 }}>{o.unallocatedCount} unalloc</span>
-                          }
-                        </div>
-                        <div style={{ color: '#94a3b8', fontSize: 12, marginBottom: 3 }}>{o.customer || '—'}{o.company ? ` · ${o.company}` : ''}</div>
-                        <div style={{ color: '#475569', fontSize: 11 }}>{o.itemCount} item{o.itemCount !== 1 ? 's' : ''} · {o.orderedDate ? new Date(o.orderedDate).toLocaleDateString() : '—'}</div>
-                      </Card>
-                    ))}
+                    ) : (
+                      <>
+                        {/* #9 Bulk select header */}
+                        {isOnHold && orders.length > 1 && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 2px' }}>
+                            <input type="checkbox"
+                              checked={orders.every((o: any) => bulkSelected.has(o.orderNumber))}
+                              onChange={e => {
+                                if (e.target.checked) setBulkSelected(new Set(orders.map((o: any) => o.orderNumber)))
+                                else setBulkSelected(new Set())
+                              }}
+                              style={{ accentColor: '#f59e0b', width: 14, height: 14, cursor: 'pointer' }}
+                            />
+                            <span style={{ fontSize: 11, color: '#475569' }}>
+                              {bulkSelected.size > 0 ? `${bulkSelected.size} selected` : 'Select all'}
+                            </span>
+                          </div>
+                        )}
+                        {orders.map((o: any) => (
+                          <Card key={o.orderNumber} style={{ padding: '12px 16px', cursor: 'pointer', borderColor: bulkSelected.has(o.orderNumber) ? 'rgba(245,158,11,0.5)' : 'rgba(245,158,11,0.25)', background: bulkSelected.has(o.orderNumber) ? 'rgba(245,158,11,0.05)' : undefined }}
+                            onClick={(e: React.MouseEvent) => { e.stopPropagation(); setSelectedOrder(o) }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                                {isOnHold && (
+                                  <input type="checkbox"
+                                    checked={bulkSelected.has(o.orderNumber)}
+                                    onChange={e => { e.stopPropagation(); setBulkSelected(prev => { const n = new Set(prev); e.target.checked ? n.add(o.orderNumber) : n.delete(o.orderNumber); return n }) }}
+                                    onClick={e => e.stopPropagation()}
+                                    style={{ accentColor: '#f59e0b', width: 14, height: 14, cursor: 'pointer', flexShrink: 0 }}
+                                  />
+                                )}
+                                <span style={{ fontWeight: 700, fontSize: 13, color: '#fcd34d' }}>{o.orderNumber}</span>
+                              </div>
+                              {isOnHold
+                                ? <span style={{ color: '#64748b', fontSize: 10, fontFamily: 'monospace' }}>{o.shipVia}</span>
+                                : <span style={{ background: '#f59e0b18', color: '#f59e0b', fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 4 }}>{o.unallocatedCount} unalloc</span>
+                              }
+                            </div>
+                            <div style={{ color: '#94a3b8', fontSize: 12, marginBottom: 3 }}>{o.customer || '—'}{o.company ? ` · ${o.company}` : ''}</div>
+                            <div style={{ color: '#475569', fontSize: 11 }}>{o.itemCount} item{o.itemCount !== 1 ? 's' : ''} · {o.orderedDate ? new Date(o.orderedDate).toLocaleDateString() : '—'}</div>
+                          </Card>
+                        ))}
+                        {/* Bulk action bar */}
+                        {isOnHold && bulkSelected.size > 0 && (
+                          <div style={{
+                            position: 'sticky', bottom: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            background: 'rgba(10,12,22,0.97)', border: '1px solid rgba(245,158,11,0.4)',
+                            borderRadius: 10, padding: '10px 16px', backdropFilter: 'blur(8px)',
+                            boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
+                          }}>
+                            <span style={{ fontSize: 13, color: '#f59e0b', fontWeight: 600 }}>
+                              {bulkReleasing ? `Releasing ${bulkProgress} / ${bulkSelected.size}…` : `${bulkSelected.size} order${bulkSelected.size > 1 ? 's' : ''} selected`}
+                            </span>
+                            <div style={{ display: 'flex', gap: 8 }}>
+                              <button onClick={() => setBulkSelected(new Set())}
+                                style={{ background: 'none', border: '1px solid rgba(255,255,255,0.12)', color: '#64748b', padding: '5px 12px', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>
+                                Clear
+                              </button>
+                              <button onClick={bulkRelease} disabled={bulkReleasing}
+                                style={{ background: '#10b981', border: 'none', color: '#fff', padding: '5px 14px', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 700, opacity: bulkReleasing ? 0.6 : 1 }}>
+                                {bulkReleasing ? '…' : `Release ${bulkSelected.size}`}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
                   </div>
                 )}
               </div>
@@ -862,12 +965,22 @@ export default function Dashboard() {
                         )}
                       </div>
                       <div style={{ display: 'flex', gap: 8 }}>
-                        {item.tier === 'B' && (
-                          <button onClick={() => handleQueue(item.id, 'approved')} disabled={acting === item.id}
-                            style={{ background: '#10b98118', border: '1px solid #10b98155', color: '#10b981', padding: '5px 14px', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
-                            {acting === item.id ? '…' : '✓ Approve'}
+                        {item.tier === 'C' && (
+                          <button
+                            onClick={() => { setOrbInput(`Review this Tier C approval item: "${item.subject}" — ${item.description}`); setOrbOpen(true) }}
+                            style={{ background: '#8b5cf618', border: '1px solid #8b5cf655', color: '#8b5cf6', padding: '5px 14px', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
+                            Ask AI ↗
                           </button>
                         )}
+                        <button onClick={() => handleQueue(item.id, 'approved')} disabled={acting === item.id}
+                          style={{
+                            background: item.tier === 'C' ? '#f59e0b12' : '#10b98118',
+                            border: `1px solid ${item.tier === 'C' ? '#f59e0b44' : '#10b98155'}`,
+                            color: item.tier === 'C' ? '#f59e0b' : '#10b981',
+                            padding: '5px 14px', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600,
+                          }}>
+                          {acting === item.id ? '…' : item.tier === 'C' ? '✓ Approve anyway' : '✓ Approve'}
+                        </button>
                         <button onClick={() => handleQueue(item.id, 'rejected')} disabled={acting === item.id}
                           style={{ background: '#ef444418', border: '1px solid #ef444455', color: '#ef4444', padding: '5px 14px', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
                           {acting === item.id ? '…' : '✕ Dismiss'}
@@ -991,6 +1104,81 @@ export default function Dashboard() {
         {/* Agent drill-down panel is rendered in the fixed overlay below */}
 
       </div>    </div>
+
+      {/* ── COMMAND PALETTE ── */}
+      {paletteOpen && (() => {
+        const q = paletteQ.trim().toLowerCase()
+        const filtered = paletteCommands.filter(c =>
+          !q || q.split(' ').every(word => c.label.toLowerCase().includes(word) || c.group.toLowerCase().includes(word))
+        ).slice(0, 10)
+        const groups = [...new Set(filtered.map(c => c.group))]
+        const safeIdx = Math.min(paletteCursor, filtered.length - 1)
+        return (
+          <>
+            <div onClick={() => { setPaletteOpen(false); setPaletteQ('') }}
+              style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 200, backdropFilter: 'blur(3px)' }} />
+            <div style={{
+              position: 'fixed', top: '18%', left: '50%', transform: 'translateX(-50%)',
+              width: 560, zIndex: 201, borderRadius: 14,
+              background: '#0d1117', border: '1px solid rgba(255,255,255,0.12)',
+              boxShadow: '0 24px 80px rgba(0,0,0,0.8)', overflow: 'hidden',
+              animation: 'paletteIn 0.18s ease',
+            }}>
+              {/* Search input */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 18px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+                <span style={{ fontSize: 16, color: '#475569' }}>⌘</span>
+                <input
+                  ref={paletteInputRef}
+                  value={paletteQ}
+                  onChange={e => { setPaletteQ(e.target.value); setPaletteCursor(0) }}
+                  onKeyDown={e => {
+                    if (e.key === 'ArrowDown') { e.preventDefault(); setPaletteCursor(i => Math.min(i + 1, filtered.length - 1)) }
+                    if (e.key === 'ArrowUp')   { e.preventDefault(); setPaletteCursor(i => Math.max(i - 1, 0)) }
+                    if (e.key === 'Enter' && filtered[safeIdx]) { filtered[safeIdx].action() }
+                    if (e.key === 'Escape') { setPaletteOpen(false); setPaletteQ('') }
+                  }}
+                  placeholder="Type a command or search…"
+                  style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: '#f1f5f9', fontSize: 16 }}
+                />
+                <kbd style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 4, padding: '2px 7px', fontSize: 11, color: '#475569' }}>ESC</kbd>
+              </div>
+              {/* Results */}
+              <div style={{ maxHeight: 400, overflowY: 'auto' }}>
+                {filtered.length === 0 ? (
+                  <div style={{ padding: '28px 18px', textAlign: 'center', color: '#334155', fontSize: 14 }}>No commands match &ldquo;{paletteQ}&rdquo;</div>
+                ) : groups.map(group => (
+                  <div key={group}>
+                    <div style={{ padding: '8px 18px 4px', fontSize: 10, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 700 }}>{group}</div>
+                    {filtered.filter(c => c.group === group).map(cmd => {
+                      const idx = filtered.indexOf(cmd)
+                      const isActive = idx === safeIdx
+                      return (
+                        <div key={cmd.id}
+                          onClick={cmd.action}
+                          onMouseEnter={() => setPaletteCursor(idx)}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: 12,
+                            padding: '10px 18px', cursor: 'pointer',
+                            background: isActive ? 'rgba(139,92,246,0.12)' : 'transparent',
+                            borderLeft: `2px solid ${isActive ? '#8b5cf6' : 'transparent'}`,
+                            transition: 'background 0.08s',
+                          }}>
+                          <span style={{ fontSize: 15, width: 22, textAlign: 'center', flexShrink: 0 }}>{cmd.icon}</span>
+                          <span style={{ fontSize: 14, color: isActive ? '#f1f5f9' : '#94a3b8', flex: 1 }}>{cmd.label}</span>
+                          {isActive && <kbd style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 4, padding: '1px 6px', fontSize: 11, color: '#475569' }}>↵</kbd>}
+                        </div>
+                      )
+                    })}
+                  </div>
+                ))}
+              </div>
+              <div style={{ padding: '8px 18px', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', gap: 16, fontSize: 11, color: '#334155' }}>
+                <span>↑↓ navigate</span><span>↵ select</span><span>esc close</span>
+              </div>
+            </div>
+          </>
+        )
+      })()}
 
       {/* ── AGENT DRILL-DOWN PANEL ── */}
       {selected && (() => {
