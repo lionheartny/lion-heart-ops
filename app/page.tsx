@@ -90,6 +90,7 @@ export default function Dashboard() {
   const [orbMousePos, setOrbMousePos] = useState<{x:number;y:number}>({x:0,y:0})
   const [orbHover, setOrbHover] = useState(false)
   const [orbFlash, setOrbFlash] = useState(false)
+  const [selectedOrder, setSelectedOrder] = useState<any>(null)
   const orbRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
@@ -222,7 +223,7 @@ export default function Dashboard() {
     { k: 'actions_today', l: 'Agent actions',  icon: '⚡', accent: '#8b5cf6' },
   ]
 
-  return (
+  return (<>
     <div style={{
       background: '#000000', minHeight: '100vh', color: '#f1f5f9',
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
@@ -304,6 +305,14 @@ export default function Dashboard() {
           @keyframes orbDot {
             0%, 80%, 100% { opacity: 0.2; transform: scale(0.7); }
             40%            { opacity: 1;   transform: scale(1); }
+          }
+          @keyframes drawerUp {
+            from { transform: translateY(100%); opacity: 0; }
+            to   { transform: translateY(0);    opacity: 1; }
+          }
+          @keyframes drawerOverlay {
+            from { opacity: 0; }
+            to   { opacity: 1; }
           }
         `}</style>
 
@@ -580,7 +589,7 @@ export default function Dashboard() {
                       </Card>
                     ) : orders.map((o: any) => (
                       <Card key={o.orderNumber} style={{ padding: '12px 16px', cursor: 'pointer', borderColor: 'rgba(245,158,11,0.25)' }}
-                        onClick={(e: React.MouseEvent) => { e.stopPropagation() }}>
+                        onClick={(e: React.MouseEvent) => { e.stopPropagation(); setSelectedOrder(o) }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
                           <span style={{ fontWeight: 700, fontSize: 13, color: '#fcd34d' }}>{o.orderNumber}</span>
                           {isOnHold
@@ -758,5 +767,164 @@ export default function Dashboard() {
         )}
 
       </div>    </div>
+
+      {/* ── ORDER DETAIL DRAWER ── */}
+      {selectedOrder && (
+        <>
+          {/* Backdrop */}
+          <div
+            onClick={() => setSelectedOrder(null)}
+            style={{
+              position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)',
+              zIndex: 50, backdropFilter: 'blur(2px)',
+              animation: 'drawerOverlay 0.2s ease',
+            }}
+          />
+
+          {/* Drawer panel */}
+          <div style={{
+            position: 'fixed', bottom: 0, left: 0, right: 0,
+            zIndex: 51, maxHeight: '72vh', display: 'flex', flexDirection: 'column',
+            background: '#0a0a12',
+            borderTop: '1px solid rgba(245,158,11,0.35)',
+            borderRadius: '20px 20px 0 0',
+            boxShadow: '0 -20px 80px rgba(0,0,0,0.9), 0 -1px 0 rgba(245,158,11,0.2)',
+            animation: 'drawerUp 0.28s cubic-bezier(0.22,1,0.36,1)',
+          }}>
+
+            {/* Drag handle */}
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0 4px' }}>
+              <div style={{ width: 40, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.12)' }} />
+            </div>
+
+            {/* Header */}
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '10px 24px 14px',
+              borderBottom: '1px solid rgba(255,255,255,0.06)',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ fontSize: 22, fontWeight: 900, color: '#fcd34d', letterSpacing: '-0.02em' }}>
+                  {selectedOrder.orderNumber}
+                </div>
+                <span style={{
+                  background: selectedOrder.status === 'on hold' ? '#f59e0b22' : '#10b98122',
+                  color:      selectedOrder.status === 'on hold' ? '#f59e0b'   : '#10b981',
+                  border:     `1px solid ${selectedOrder.status === 'on hold' ? '#f59e0b44' : '#10b98144'}`,
+                  fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 6, textTransform: 'uppercase', letterSpacing: '0.07em',
+                }}>
+                  {selectedOrder.status}
+                </span>
+                {selectedOrder.isExpress && (
+                  <span style={{ background: '#ef444422', color: '#ef4444', border: '1px solid #ef444444', fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 6 }}>
+                    ⚡ Express
+                  </span>
+                )}
+              </div>
+              <button
+                onClick={() => setSelectedOrder(null)}
+                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8', cursor: 'pointer', fontSize: 18, lineHeight: 1, padding: '6px 11px', borderRadius: 8 }}>
+                ×
+              </button>
+            </div>
+
+            {/* Scrollable body */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px 32px', display: 'flex', flexDirection: 'column', gap: 22 }}>
+
+              {/* Customer + Shipping row */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
+                {/* Customer */}
+                <div>
+                  <div style={{ fontSize: 10, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600, marginBottom: 8 }}>Customer</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#f1f5f9', marginBottom: 3 }}>{selectedOrder.customer || '—'}</div>
+                  {selectedOrder.company && <div style={{ fontSize: 12, color: '#64748b', marginBottom: 3 }}>{selectedOrder.company}</div>}
+                  {selectedOrder.email && (
+                    <div style={{ fontSize: 12, color: '#60a5fa' }}>
+                      <a href={`mailto:${selectedOrder.email}`} style={{ color: 'inherit', textDecoration: 'none' }}>{selectedOrder.email}</a>
+                    </div>
+                  )}
+                </div>
+
+                {/* Shipping */}
+                <div>
+                  <div style={{ fontSize: 10, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600, marginBottom: 8 }}>Ship To</div>
+                  <div style={{ fontSize: 13, color: '#94a3b8', lineHeight: 1.5 }}>{selectedOrder.shippingAddress || '—'}</div>
+                </div>
+
+                {/* Meta */}
+                <div>
+                  <div style={{ fontSize: 10, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600, marginBottom: 8 }}>Details</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: 12, color: '#475569' }}>Ordered</span>
+                      <span style={{ fontSize: 12, color: '#94a3b8' }}>{selectedOrder.orderedDate ? new Date(selectedOrder.orderedDate).toLocaleDateString('en-US', {month:'short',day:'numeric',year:'numeric'}) : '—'}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: 12, color: '#475569' }}>Ship via</span>
+                      <span style={{ fontSize: 12, color: '#94a3b8', fontFamily: 'monospace' }}>{selectedOrder.shipVia || '—'}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: 12, color: '#475569' }}>Items</span>
+                      <span style={{ fontSize: 12, color: '#94a3b8' }}>{selectedOrder.itemCount}</span>
+                    </div>
+                  </div>
+                  {selectedOrder.tracking?.length > 0 && (
+                    <div style={{ marginTop: 10 }}>
+                      <div style={{ fontSize: 10, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600, marginBottom: 6 }}>Tracking</div>
+                      {selectedOrder.tracking.map((t: any, i: number) => (
+                        <div key={i} style={{ fontSize: 11, color: '#60a5fa', fontFamily: 'monospace', marginBottom: 2 }}>
+                          {t.carrier}: {t.tracking}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Items table */}
+              {selectedOrder.items?.length > 0 && (
+                <div>
+                  <div style={{ fontSize: 10, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600, marginBottom: 10 }}>
+                    Line Items ({selectedOrder.items.length})
+                  </div>
+                  <div style={{ border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, overflow: 'hidden' }}>
+                    {/* Table header */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr 70px 70px 80px', gap: 0, background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.06)', padding: '8px 14px' }}>
+                      {['SKU','Description','Qty','Allocated','Status'].map(h => (
+                        <div key={h} style={{ fontSize: 10, color: '#475569', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em' }}>{h}</div>
+                      ))}
+                    </div>
+                    {/* Table rows */}
+                    {selectedOrder.items.map((item: any, idx: number) => {
+                      const isShort = item.allocated < item.qty
+                      return (
+                        <div key={idx} style={{
+                          display: 'grid', gridTemplateColumns: '140px 1fr 70px 70px 80px',
+                          gap: 0, padding: '10px 14px',
+                          borderBottom: idx < selectedOrder.items.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
+                          background: isShort ? 'rgba(245,158,11,0.03)' : 'transparent',
+                        }}>
+                          <div style={{ fontSize: 12, color: '#fcd34d', fontFamily: 'monospace', fontWeight: 600 }}>{item.sku}</div>
+                          <div style={{ fontSize: 12, color: '#94a3b8', paddingRight: 12 }}>{item.name || '—'}</div>
+                          <div style={{ fontSize: 12, color: '#e2e8f0', fontWeight: 600 }}>{item.qty}</div>
+                          <div style={{ fontSize: 12, color: isShort ? '#f59e0b' : '#10b981', fontWeight: 600 }}>{item.allocated}</div>
+                          <div>
+                            {isShort
+                              ? <span style={{ background: '#f59e0b18', color: '#f59e0b', fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 4 }}>SHORT {item.qty - item.allocated}</span>
+                              : <span style={{ background: '#10b98118', color: '#10b981', fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 4 }}>OK</span>
+                            }
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+            </div>
+          </div>
+        </>
+      )}
+  </>
   )
 }
