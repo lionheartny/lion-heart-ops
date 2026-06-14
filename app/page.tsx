@@ -91,6 +91,8 @@ export default function Dashboard() {
   const [orbHover, setOrbHover] = useState(false)
   const [orbFlash, setOrbFlash] = useState(false)
   const [selectedOrder, setSelectedOrder] = useState<any>(null)
+  const [drawerAction, setDrawerAction] = useState<'idle'|'releasing'|'released'|'error'>('idle')
+  const [copiedTracking, setCopiedTracking] = useState(false)
   const orbRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
@@ -222,6 +224,42 @@ export default function Dashboard() {
     { k: 'held_for_you',  l: 'Awaiting you',   icon: '⏳', accent: held > 0 ? '#ef4444' : '#8b5cf6' },
     { k: 'actions_today', l: 'Agent actions',  icon: '⚡', accent: '#8b5cf6' },
   ]
+
+  const releaseHold = async () => {
+    if (!selectedOrder || drawerAction === 'releasing') return
+    setDrawerAction('releasing')
+    try {
+      const res = await fetch('/api/orders/release', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: selectedOrder.id, orderNumber: selectedOrder.orderNumber }),
+      })
+      if (!res.ok) throw new Error('failed')
+      setDrawerAction('released')
+      // Refresh on-hold list
+      fetch('/api/orders?onhold=true').then(r => r.json()).then(d => setOnHoldOrders(d.orders ?? []))
+      setTimeout(() => { setSelectedOrder(null); setDrawerAction('idle') }, 1800)
+    } catch {
+      setDrawerAction('error')
+      setTimeout(() => setDrawerAction('idle'), 2500)
+    }
+  }
+
+  const escalateOrder = () => {
+    if (!selectedOrder) return
+    const msg = `Tara — order ${selectedOrder.orderNumber} for ${selectedOrder.customer || 'unknown customer'} is on hold${selectedOrder.shipVia ? ` (${selectedOrder.shipVia})` : ''}. Please review and advise.`
+    setOrbInput(msg)
+    setOrbOpen(true)
+    setSelectedOrder(null)
+  }
+
+  const copyTracking = () => {
+    if (!selectedOrder?.tracking?.length) return
+    const text = selectedOrder.tracking.map((t: any) => `${t.carrier}: ${t.tracking}`).join('\n')
+    navigator.clipboard.writeText(text)
+    setCopiedTracking(true)
+    setTimeout(() => setCopiedTracking(false), 2000)
+  }
 
   return (<>
     <div style={{
@@ -773,7 +811,7 @@ export default function Dashboard() {
         <>
           {/* Backdrop */}
           <div
-            onClick={() => setSelectedOrder(null)}
+            onClick={() => { setSelectedOrder(null); setDrawerAction('idle'); setCopiedTracking(false) }}
             style={{
               position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)',
               zIndex: 50, backdropFilter: 'blur(2px)',
@@ -822,9 +860,57 @@ export default function Dashboard() {
                 )}
               </div>
               <button
-                onClick={() => setSelectedOrder(null)}
+                onClick={() => { setSelectedOrder(null); setDrawerAction('idle'); setCopiedTracking(false) }}
                 style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8', cursor: 'pointer', fontSize: 18, lineHeight: 1, padding: '6px 11px', borderRadius: 8 }}>
                 ×
+              </button>
+            </div>
+
+            {/* Action bar */}
+            <div style={{ display: 'flex', gap: 8, padding: '10px 24px 14px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+              {/* Release Hold */}
+              {selectedOrder.status === 'on hold' && (
+                <button onClick={releaseHold} disabled={drawerAction !== 'idle'}
+                  style={{
+                    flex: 1, padding: '9px 0', borderRadius: 9, fontSize: 12, fontWeight: 700, cursor: drawerAction !== 'idle' ? 'not-allowed' : 'pointer', border: 'none',
+                    background: drawerAction === 'released' ? 'linear-gradient(135deg,#10b981,#059669)'
+                              : drawerAction === 'error'    ? 'linear-gradient(135deg,#ef4444,#dc2626)'
+                              : drawerAction === 'releasing' ? 'rgba(245,158,11,0.15)'
+                              : 'linear-gradient(135deg,#f59e0b,#d97706)',
+                    color: drawerAction === 'releasing' ? '#f59e0b' : '#fff',
+                    boxShadow: drawerAction === 'idle' ? '0 4px 14px rgba(245,158,11,0.35)' : 'none',
+                    transition: 'all 0.2s',
+                  }}>
+                  {drawerAction === 'releasing' ? '⏳ Releasing…'
+                   : drawerAction === 'released' ? '✓ Released'
+                   : drawerAction === 'error'    ? '✕ Failed — retry'
+                   : '▶ Release Hold'}
+                </button>
+              )}
+
+              {/* Escalate to Tara */}
+              <button onClick={escalateOrder}
+                style={{
+                  flex: 1, padding: '9px 0', borderRadius: 9, fontSize: 12, fontWeight: 700, cursor: 'pointer', border: '1px solid rgba(6,182,212,0.35)',
+                  background: 'rgba(6,182,212,0.08)', color: '#06b6d4',
+                  transition: 'all 0.15s',
+                }}>
+                ↗ Escalate to Tara
+              </button>
+
+              {/* Copy Tracking */}
+              <button onClick={copyTracking}
+                disabled={!selectedOrder.tracking?.length}
+                style={{
+                  flex: selectedOrder.status === 'on hold' ? '0 0 130px' : 1,
+                  padding: '9px 0', borderRadius: 9, fontSize: 12, fontWeight: 700,
+                  cursor: selectedOrder.tracking?.length ? 'pointer' : 'not-allowed',
+                  border: '1px solid rgba(100,116,139,0.3)',
+                  background: copiedTracking ? 'rgba(16,185,129,0.12)' : 'rgba(255,255,255,0.04)',
+                  color: copiedTracking ? '#10b981' : selectedOrder.tracking?.length ? '#94a3b8' : '#334155',
+                  transition: 'all 0.15s',
+                }}>
+                {copiedTracking ? '✓ Copied' : '⎘ Copy Tracking'}
               </button>
             </div>
 
