@@ -474,12 +474,30 @@ export default function Dashboard() {
           padding: '20px 0 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', marginBottom: 28,
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            <div style={{ width: 80, height: 80, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <img src="/lh-logo-dark.png" alt="Lion-Heart" style={{ width: 80, height: 80, objectFit: 'contain', filter: 'brightness(0) invert(1) drop-shadow(0 0 12px rgba(139,92,246,0.7))' }} />
+            {/* JB Command mark */}
+            <div style={{ width: 52, height: 52, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="52" height="52" viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <linearGradient id="jbGrad" x1="0" y1="0" x2="52" y2="52" gradientUnits="userSpaceOnUse">
+                    <stop offset="0%" stopColor="#a78bfa"/>
+                    <stop offset="100%" stopColor="#818cf8"/>
+                  </linearGradient>
+                  <filter id="jbGlow">
+                    <feGaussianBlur stdDeviation="2.5" result="blur"/>
+                    <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                  </filter>
+                </defs>
+                {/* Hexagon */}
+                <polygon points="26,3 47,14.5 47,37.5 26,49 5,37.5 5,14.5" fill="rgba(139,92,246,0.12)" stroke="url(#jbGrad)" strokeWidth="1.5" filter="url(#jbGlow)"/>
+                {/* Inner ring */}
+                <polygon points="26,9 41,17.5 41,34.5 26,43 11,34.5 11,17.5" fill="none" stroke="rgba(139,92,246,0.3)" strokeWidth="0.75"/>
+                {/* JB text */}
+                <text x="26" y="31" textAnchor="middle" fontFamily="system-ui, -apple-system, sans-serif" fontWeight="800" fontSize="15" letterSpacing="-0.5" fill="url(#jbGrad)" filter="url(#jbGlow)">JB</text>
+              </svg>
             </div>
             <div>
-              <div style={{ fontWeight: 700, fontSize: 16, letterSpacing: '-0.02em', lineHeight: 1.2 }}>Lion-Heart</div>
-              <div style={{ fontSize: 11, color: '#64748b', letterSpacing: '0.08em', textTransform: 'uppercase', marginTop: 1 }}>Agent Operations</div>
+              <div style={{ fontWeight: 800, fontSize: 18, letterSpacing: '-0.04em', lineHeight: 1.1, background: 'linear-gradient(135deg, #e2e8f0 0%, #a78bfa 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>JB Command</div>
+              <div style={{ fontSize: 10, color: '#475569', letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: 2, fontWeight: 600 }}>War Room</div>
             </div>
           </div>
 
@@ -677,10 +695,10 @@ export default function Dashboard() {
               <div style={{ padding: '14px 18px 13px', borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'linear-gradient(135deg,rgba(109,40,217,0.2),rgba(76,29,149,0.1))', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
                   <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(109,40,217,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', border: '1px solid rgba(139,92,246,0.5)' }}>
-                    <img src="/lh-logo.png" style={{ width: 20, height: 20, objectFit: 'contain', filter: 'brightness(0) invert(1)' }} />
+                    <svg width="20" height="20" viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg"><polygon points="26,3 47,14.5 47,37.5 26,49 5,37.5 5,14.5" fill="rgba(139,92,246,0.15)" stroke="#a78bfa" strokeWidth="1.5"/><text x="26" y="31" textAnchor="middle" fontFamily="system-ui,sans-serif" fontWeight="800" fontSize="15" fill="#a78bfa">JB</text></svg>
                   </div>
                   <div>
-                    <div style={{ fontWeight: 800, fontSize: 13, color: '#ede9fe' }}>Lion-Heart Command</div>
+                    <div style={{ fontWeight: 800, fontSize: 13, color: '#ede9fe' }}>JB Command</div>
                     <div style={{ fontSize: 10, color: '#c4b5fd', letterSpacing: '0.08em', textTransform: 'uppercase', marginTop: 1 }}>9 agents · always on</div>
                   </div>
                 </div>
@@ -689,7 +707,7 @@ export default function Dashboard() {
               <div style={{ maxHeight: 340, overflowY: 'auto', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 11 }}>
                 {orbMessages.length === 0 && (
                   <div style={{ color: '#475569', fontSize: 13, textAlign: 'center', padding: '24px 0' }}>
-                    <div style={{ fontSize: 26, marginBottom: 8 }}>🦁</div>
+                    <div style={{ fontSize: 26, marginBottom: 8 }}>⚡</div>
                     Ask anything — the right agent picks up.
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, justifyContent: 'center', marginTop: 10 }}>
                       {['Donny','Mark','Boris','Svetlana','Morgan','Tara','Owen','Priya','Nina'].map(n => {
@@ -735,7 +753,7 @@ export default function Dashboard() {
           {/* Plasma ball trigger — mouse-interactive */}
           <button
             ref={orbRef}
-            title="Lion-Heart Command"
+            title="JB Command"
             onMouseMove={(e: React.MouseEvent<HTMLButtonElement>) => {
               const r = orbRef.current?.getBoundingClientRect()
               if (!r) return
